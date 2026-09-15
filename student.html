@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Student Portal – Faculty Portal</title>
+<link rel="stylesheet" href="css/style.css"/>
+<style>
+  .student-nav { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
+  .student-nav-btn { display: flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--surface); cursor: pointer; font-size: .82rem; font-weight: 600; transition: all .2s; }
+  .student-nav-btn:hover, .student-nav-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+</style>
+</head>
+<body>
+<div style="background: linear-gradient(135deg,#1a3c6e,#1e5799);color:#fff;padding:16px 28px;display:flex;justify-content:space-between;align-items:center;">
+  <div>
+    <div style="font-weight:800;font-size:1rem;" id="student-college-name">🎓 Student Portal</div>
+    <div style="font-size:.75rem;opacity:.7" id="student-class-label"></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:14px;">
+    <div style="font-size:.82rem;background:rgba(255,255,255,.15);padding:7px 14px;border-radius:20px;" id="student-name-badge">Student</div>
+    <a href="login.html" style="color:#fff;font-size:.8rem;background:rgba(255,0,0,.3);padding:6px 12px;border-radius:6px;">🚪 Logout</a>
+  </div>
+</div>
+
+<div style="padding:24px;max-width:1100px;margin:0 auto;">
+
+  <div class="student-nav">
+    <button class="student-nav-btn active" onclick="showStudentSection('dashboard', this)">🏠 Dashboard</button>
+    <button class="student-nav-btn" onclick="showStudentSection('attendance', this)">✅ My Attendance</button>
+    <button class="student-nav-btn" onclick="showStudentSection('marks', this)">📊 My Marks</button>
+    <button class="student-nav-btn" onclick="showStudentSection('timetable', this)">🗓 Timetable</button>
+    <button class="student-nav-btn" onclick="showStudentSection('materials', this)">📁 Study Materials</button>
+    <button class="student-nav-btn" onclick="showStudentSection('assignments', this)">📝 Assignments</button>
+    <button class="student-nav-btn" onclick="showStudentSection('announcements', this)">📢 Announcements</button>
+    <button class="student-nav-btn" onclick="showStudentSection('leave', this)">📋 Apply Leave</button>
+  </div>
+
+  <div id="student-content"></div>
+
+</div>
+
+<div style="text-align:center;padding:20px;border-top:1px solid var(--border);color:var(--muted);font-size:.75rem;margin-top:24px;" id="student-footer">
+  Powered by IBM watsonx AI
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/watsonx.js"></script>
+<script>
+// Use APP_DATA students; fall back to empty if none added yet
+let STUDENTS_LIST = [];
+let STUDENT = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  STUDENTS_LIST = APP_DATA.getStudents();
+  STUDENT = STUDENTS_LIST[0] || null;
+
+  const col = APP_DATA.getCollegeInfo();
+  document.getElementById('student-college-name').textContent = `🎓 ${col.name || 'Student Portal'}`;
+  document.getElementById('student-class-label').textContent  = [col.class, col.semester, col.academicYear].filter(Boolean).join(' · ');
+  document.getElementById('student-footer').textContent       = `${col.name || 'Faculty Portal'} · Powered by IBM watsonx AI`;
+
+  if (STUDENT) {
+    document.getElementById('student-name-badge').textContent = `${STUDENT.name} · ${STUDENT.usn || STUDENT.rollNo || ''}`;
+  }
+  showStudentSection('dashboard', document.querySelector('.student-nav-btn'));
+});
+
+function showStudentSection(id, btn) {
+  document.querySelectorAll('.student-nav-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const el = document.getElementById('student-content');
+  const sections = {
+    dashboard: buildStudentDashboard,
+    attendance: buildStudentAttendance,
+    marks: buildStudentMarks,
+    timetable: buildStudentTimetable,
+    materials: buildStudentMaterials,
+    assignments: buildStudentAssignments,
+    announcements: buildStudentAnnouncements,
+    leave: buildStudentLeave,
+  };
+  if (sections[id]) el.innerHTML = sections[id]();
+}
+
+function buildStudentDashboard() {
+  if (!STUDENT) return `<div class="card"><div class="empty-tt"><div class="icon">🎓</div><p>No student data found. Please ask your faculty to add students via the Admin panel.</p></div></div>`;
+  const total = (STUDENT.internal1||0) + (STUDENT.internal2||0) + (STUDENT.assignment||0);
+  const todaySlots = APP_DATA.getTimetable().find(d=>d.day===getDay())?.slots.filter(s=>s.type!=='break'&&s.subject!=='—') || [];
+  const anns = APP_DATA.getAnnouncements();
+  return `
+    <div class="stat-grid" style="margin-bottom:20px;">
+      <div class="stat-card"><div class="stat-icon ${(STUDENT.attendance||0)>=75?'green':'red'}">✅</div><div><div class="stat-val">${STUDENT.attendance||0}%</div><div class="stat-label">Attendance</div></div></div>
+      <div class="stat-card"><div class="stat-icon blue">📊</div><div><div class="stat-val">${total}/50</div><div class="stat-label">Total Marks</div></div></div>
+      <div class="stat-card"><div class="stat-icon purple">📚</div><div><div class="stat-val">${APP_DATA.getSubjects().length||0}</div><div class="stat-label">Subjects</div></div></div>
+      <div class="stat-card"><div class="stat-icon orange">📢</div><div><div class="stat-val">${anns.length}</div><div class="stat-label">Announcements</div></div></div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">📅 Today's Classes</div>
+        ${todaySlots.length ? todaySlots.map(s=>`
+          <div style="padding:8px 0;border-bottom:1px solid var(--border);">
+            <div style="font-weight:600;font-size:.85rem">${s.subject}</div>
+            <div style="font-size:.76rem;color:var(--muted)">${s.time}${s.faculty?' · '+s.faculty:''}${s.room?' · Room '+s.room:''}</div>
+          </div>`).join('') : '<div style="color:var(--muted);font-size:.82rem">No classes today.</div>'}
+      </div>
+      <div class="card">
+        <div class="card-title">📢 Latest Announcements</div>
+        ${anns.length ? anns.slice(0,3).map(a=>`
+          <div style="padding:8px 0;border-bottom:1px solid var(--border);">
+            <div style="font-size:.82rem;font-weight:600">${a.title}</div>
+            <div style="font-size:.72rem;color:var(--muted)">${a.date} · ${a.by}</div>
+          </div>`).join('') : '<div style="color:var(--muted);font-size:.82rem">No announcements yet.</div>'}
+      </div>
+    </div>`;
+}
+
+function buildStudentAttendance() {
+  if (!STUDENT) return `<div class="card"><p style="color:var(--muted)">No student data found.</p></div>`;
+  const att = STUDENT.attendance || 0;
+  const col = APP_DATA.getCollegeInfo();
+  const subjects = APP_DATA.getSubjects();
+  return `
+    <div class="card">
+      <div class="card-title">✅ My Attendance${col.class ? ' — ' + col.class : ''}</div>
+      <div class="alert ${att>=75?'alert-success':'alert-danger'}">
+        ${att>=75 ? '✅ Your attendance is satisfactory.' : '⚠️ Your attendance is below 75%. You may be detained from exams.'}
+        Current: <strong>${att}%</strong>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Subject</th><th>Total Classes</th><th>Attended</th><th>Absent</th><th>Attendance %</th><th>Status</th></tr></thead>
+          <tbody>
+            ${subjects.length ? subjects.map(sub=>`
+              <tr>
+                <td style="font-weight:600">${sub.name}</td>
+                <td style="text-align:center">16</td>
+                <td style="text-align:center;color:var(--success);font-weight:700">${Math.round(att/100*16)}</td>
+                <td style="text-align:center;color:var(--danger);font-weight:700">${16 - Math.round(att/100*16)}</td>
+                <td>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <div class="progress-bar-wrap" style="width:70px"><div class="progress-bar ${att>=75?'green':'red'}" style="width:${att}%"></div></div>
+                    <strong>${att}%</strong>
+                  </div>
+                </td>
+                <td><span class="pill ${att>=75?'pill-green':'pill-red'}">${att>=75?'Regular':'Shortage'}</span></td>
+              </tr>`).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted)">No subjects configured yet.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function buildStudentMarks() {
+  if (!STUDENT) return `<div class="card"><p style="color:var(--muted)">No student data found.</p></div>`;
+  const i1 = STUDENT.internal1||0, i2 = STUDENT.internal2||0, asgn = STUDENT.assignment||0;
+  const total = i1 + i2 + asgn;
+  const subjects = APP_DATA.getSubjects();
+  return `
+    <div class="card">
+      <div class="card-title">📊 My Internal Marks</div>
+      <div class="grid-3" style="margin-bottom:16px;">
+        <div style="background:var(--bg);border-radius:8px;padding:14px;text-align:center;"><div style="font-size:1.4rem;font-weight:800;color:var(--info)">${i1}/20</div><div style="font-size:.75rem;color:var(--muted)">Internal 1</div></div>
+        <div style="background:var(--bg);border-radius:8px;padding:14px;text-align:center;"><div style="font-size:1.4rem;font-weight:800;color:var(--info)">${i2}/20</div><div style="font-size:.75rem;color:var(--muted)">Internal 2</div></div>
+        <div style="background:var(--bg);border-radius:8px;padding:14px;text-align:center;"><div style="font-size:1.4rem;font-weight:800;color:var(--success)">${total}/50</div><div style="font-size:.75rem;color:var(--muted)">Total</div></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Subject</th><th>Internal 1/20</th><th>Internal 2/20</th><th>Assignment/10</th><th>Total/50</th><th>Grade</th></tr></thead>
+          <tbody>
+            ${subjects.length ? subjects.map(sub=>{
+              const pct = Math.round(total/50*100);
+              const g = pct>=90?'O':pct>=80?'A+':pct>=70?'A':pct>=60?'B+':pct>=50?'B':pct>=40?'C':'F';
+              return `<tr>
+                <td style="font-weight:600">${sub.name}</td>
+                <td style="text-align:center">${i1}</td>
+                <td style="text-align:center">${i2}</td>
+                <td style="text-align:center">${asgn}</td>
+                <td style="text-align:center;font-weight:800">${total}</td>
+                <td style="text-align:center;font-weight:700">${g}</td>
+              </tr>`;
+            }).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted)">No subjects configured yet.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function buildStudentTimetable() {
+  const tt = APP_DATA.getTimetable();
+  const col = APP_DATA.getCollegeInfo();
+  // Collect all unique time slots
+  const times = [...new Set(tt.flatMap(d=>d.slots.map(s=>s.time)))].sort();
+  if (!times.length) return `<div class="card"><div style="text-align:center;padding:30px;color:var(--muted)">No timetable built yet. Ask your faculty to upload the timetable.</div></div>`;
+  return `
+    <div class="card">
+      <div class="card-title">🗓 Weekly Timetable${col.class?' — '+col.class:''}${col.academicYear?' · '+col.academicYear:''}</div>
+      <div style="overflow-x:auto;">
+        <table style="border-collapse:collapse;min-width:600px;width:100%;font-size:.76rem;">
+          <thead>
+            <tr style="background:var(--primary);color:#fff;">
+              <th style="padding:10px 8px;border:1px solid #2563ab">Day</th>
+              ${times.map(t=>`<th style="padding:10px 8px;border:1px solid #2563ab">${t}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${tt.map(day=>`
+              <tr>
+                <td style="border:1px solid var(--border);background:var(--primary);color:#fff;font-weight:700;padding:8px;text-align:center;">${day.day.substring(0,3)}</td>
+                ${times.map(time=>{
+                  const s = day.slots.find(sl=>sl.time===time);
+                  if (!s) return `<td style="border:1px solid var(--border);background:#f8fafc;padding:6px"></td>`;
+                  if (s.type==='break') return `<td style="border:1px solid var(--border);background:#f8fafc;padding:6px;text-align:center;color:var(--muted);font-size:.7rem">☕ Break</td>`;
+                  return `<td style="border:1px solid var(--border);background:${s.type==='lab'?'#fef9c3':'#eff6ff'};padding:8px;"><div style="font-weight:700;color:var(--primary)">${s.subject}</div>${s.faculty?`<div style="font-size:.68rem;color:var(--muted)">${s.faculty}</div>`:''}${s.room?`<div style="font-size:.68rem;color:var(--warning)">Rm ${s.room}</div>`:''}</td>`;
+                }).join('')}
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function buildStudentMaterials() {
+  const mats = [
+    { subject: 'Web Programming', file: 'Unit1_HTML_CSS.pdf', size: '2.1 MB', date: 'Nov 10, 2026' },
+    { subject: 'Software Engineering', file: 'SE_Notes_Unit2.pdf', size: '1.8 MB', date: 'Nov 12, 2026' },
+    { subject: 'Cryptography & Network Security', file: 'CNS_Unit3_Encryption.pdf', size: '3.2 MB', date: 'Nov 14, 2026' },
+    { subject: 'Data Analytics', file: 'DA_Lab_Manual.pdf', size: '4.5 MB', date: 'Nov 15, 2026' },
+    { subject: 'Quantitative Techniques', file: 'QT_Practice_Problems.pdf', size: '1.1 MB', date: 'Nov 11, 2026' },
+  ];
+  return `
+    <div class="card">
+      <div class="card-title">📁 Study Materials</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Subject</th><th>File</th><th>Size</th><th>Uploaded</th><th>Action</th></tr></thead>
+          <tbody>
+            ${mats.map(m=>`
+              <tr>
+                <td style="font-weight:600">${m.subject}</td>
+                <td>📄 ${m.file}</td>
+                <td>${m.size}</td>
+                <td>${m.date}</td>
+                <td><button onclick="alert('Downloading ${m.file}…')" class="btn btn-sm btn-primary">⬇ Download</button></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function buildStudentAssignments() {
+  return `
+    <div class="card">
+      <div class="card-title">📝 Assignments</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Subject</th><th>Title</th><th>Due Date</th><th>Max Marks</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr><td>Web Programming</td><td>Build a Responsive Web Page</td><td>Nov 20, 2026</td><td>10</td><td><span class="pill pill-orange">Pending</span></td><td><button onclick="alert('Submit assignment')" class="btn btn-sm btn-primary">📤 Submit</button></td></tr>
+            <tr><td>Software Engineering</td><td>Draw UML Diagrams</td><td>Nov 22, 2026</td><td>10</td><td><span class="pill pill-orange">Pending</span></td><td><button onclick="alert('Submit assignment')" class="btn btn-sm btn-primary">📤 Submit</button></td></tr>
+            <tr><td>Cryptography &amp; NS</td><td>Implement Caesar Cipher</td><td>Nov 18, 2026</td><td>10</td><td><span class="pill pill-green">Submitted</span></td><td><span style="font-size:.76rem;color:var(--muted)">Awaiting evaluation</span></td></tr>
+            <tr><td>Data Analytics</td><td>Exploratory Data Analysis Report</td><td>Nov 25, 2026</td><td>10</td><td><span class="pill pill-gray">Not started</span></td><td><button onclick="alert('Submit assignment')" class="btn btn-sm btn-primary">📤 Submit</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function buildStudentAnnouncements() {
+  const anns = APP_DATA.getAnnouncements();
+  return `
+    <div class="card">
+      <div class="card-title">📢 Announcements</div>
+      ${anns.length ? anns.map(a=>`
+        <div style="padding:14px;border:1px solid var(--border);border-radius:10px;margin-bottom:12px;border-left:4px solid ${a.priority==='high'?'var(--danger)':a.priority==='medium'?'var(--warning)':'var(--border)'};">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;">
+            <div style="font-weight:700;font-size:.9rem">${a.title}</div>
+            <span class="pill ${a.priority==='high'?'pill-red':a.priority==='medium'?'pill-orange':'pill-gray'}">${a.priority}</span>
+          </div>
+          <div style="font-size:.82rem;color:var(--text)">${a.body}</div>
+          <div style="font-size:.72rem;color:var(--muted);margin-top:6px">${a.date} · Posted by ${a.by}</div>
+        </div>`).join('') : '<p style="color:var(--muted)">No announcements yet.</p>'}
+    </div>`;
+}
+
+function buildStudentLeave() {
+  return `
+    <div class="card">
+      <div class="card-title">📋 Apply for Leave</div>
+      <div class="form-group" style="max-width:500px;">
+        <label class="form-label">Leave Type</label>
+        <select class="form-control">
+          <option>Medical Leave</option>
+          <option>Personal Leave</option>
+          <option>Family Emergency</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="form-row" style="max-width:500px;">
+        <div class="form-group">
+          <label class="form-label">From Date</label>
+          <input type="date" class="form-control"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">To Date</label>
+          <input type="date" class="form-control"/>
+        </div>
+      </div>
+      <div class="form-group" style="max-width:500px;">
+        <label class="form-label">Reason</label>
+        <textarea class="form-control" rows="3" placeholder="Describe your reason for leave…"></textarea>
+      </div>
+      <div class="form-group" style="max-width:500px;">
+        <label class="form-label">Supporting Document (Optional)</label>
+        <input type="file" class="form-control"/>
+      </div>
+      <button onclick="submitLeave()" class="btn btn-primary">📤 Submit Leave Application</button>
+    </div>`;
+}
+
+function submitLeave() { alert('✅ Leave application submitted. Your class teacher will review it.'); }
+function getDay() { return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date().getDay()]; }
+</script>
+</body>
+</html>

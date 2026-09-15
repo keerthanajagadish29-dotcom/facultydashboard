@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Reports – Faculty Portal</title>
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+<div class="shell">
+  <div id="sidebar-placeholder"></div>
+  <div class="main-area">
+    <div id="header-placeholder"></div>
+    <main class="page-content">
+
+      <div class="page-header">
+        <div>
+          <h1>Reports & Analytics</h1>
+          <div class="subtitle">Generate and export attendance, marks, assignment, and semester reports</div>
+        </div>
+        <button onclick="loadAIReport()" class="btn btn-sm" style="background:#1a3c6e;color:#fff;">🤖 AI Summary Report</button>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('generate', this)">Generate Report</div>
+        <div class="tab" onclick="switchTab('attendance', this)">Attendance Report</div>
+        <div class="tab" onclick="switchTab('marks', this)">Marks Report</div>
+        <div class="tab" onclick="switchTab('semester', this)">Semester Report</div>
+      </div>
+
+      <!-- Generate -->
+      <div class="tab-panel active" id="tab-generate">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">⚙️ Report Builder</div>
+            <div class="form-group">
+              <label class="form-label">Report Type</label>
+              <select class="form-control" id="report-type">
+                <option>Attendance Report</option>
+                <option>Internal Marks Report</option>
+                <option>Assignment Report</option>
+                <option>Subject-wise Report</option>
+                <option>Semester Consolidated Report</option>
+                <option>At-Risk Student Report</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Subject</label>
+              <select class="form-control" id="report-subject">
+                <option>All Subjects</option>
+                <option>Web Programming</option>
+                <option>Software Engineering</option>
+                <option>Cryptography &amp; Network Security</option>
+                <option>Data Analytics</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">From Date</label>
+                <input type="date" class="form-control" value="2026-11-01"/>
+              </div>
+              <div class="form-group">
+                <label class="form-label">To Date</label>
+                <input type="date" class="form-control" value="2026-11-30"/>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Export Format</label>
+              <div style="display:flex;gap:12px;margin-top:6px;">
+                <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer;"><input type="radio" name="fmt" value="pdf" checked/> PDF</label>
+                <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer;"><input type="radio" name="fmt" value="excel"/> Excel</label>
+                <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer;"><input type="radio" name="fmt" value="csv"/> CSV</label>
+              </div>
+            </div>
+            <button onclick="generateReport()" class="btn btn-primary" style="width:100%">📊 Generate Report</button>
+          </div>
+
+          <div class="card">
+            <div class="card-title">📋 Quick Reports</div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <button onclick="quickReport('monthly-attendance')" class="btn btn-outline" style="text-align:left;justify-content:flex-start;">📅 Monthly Attendance Report</button>
+              <button onclick="quickReport('internal-marks')" class="btn btn-outline" style="text-align:left;justify-content:flex-start;">📝 Internal Marks Summary</button>
+              <button onclick="quickReport('at-risk')" class="btn btn-outline" style="text-align:left;justify-content:flex-start;">⚠️ At-Risk Students Report</button>
+              <button onclick="quickReport('performance')" class="btn btn-outline" style="text-align:left;justify-content:flex-start;">📈 Student Performance Report</button>
+              <button onclick="quickReport('semester')" class="btn btn-outline" style="text-align:left;justify-content:flex-start;">🎓 Semester Consolidated Report</button>
+            </div>
+            <div style="margin-top:16px;">
+              <div class="card-title" style="font-size:.82rem;">🤖 AI-Generated Summary</div>
+              <div id="ai-report-preview" style="font-size:.8rem;color:var(--muted);font-style:italic;">Click "AI Summary Report" to generate.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Preview -->
+        <div class="card" id="report-preview" style="margin-top:16px;display:none;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <div class="card-title" style="margin-bottom:0" id="report-preview-title">Report Preview</div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="exportPreview('pdf')" class="btn btn-primary btn-sm">📄 PDF</button>
+              <button onclick="exportPreview('excel')" class="btn btn-success btn-sm">📊 Excel</button>
+              <button onclick="exportPreview('csv')" class="btn btn-outline btn-sm">📝 CSV</button>
+            </div>
+          </div>
+          <div id="report-content"></div>
+        </div>
+      </div>
+
+      <!-- Attendance Report Tab -->
+      <div class="tab-panel" id="tab-attendance">
+        <div class="card">
+          <div class="card-title">📅 Attendance Report — November 2026</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th><th>USN</th><th>Name</th>
+                  <th>Total Classes</th><th>Attended</th><th>Absent</th>
+                  <th>Attendance %</th><th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- populated by JS -->
+              </tbody>
+            </table>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:10px;">
+            <button onclick="exportPreview('pdf')" class="btn btn-primary btn-sm">📄 Export PDF</button>
+            <button onclick="exportPreview('excel')" class="btn btn-success btn-sm">📊 Export Excel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Marks Report Tab -->
+      <div class="tab-panel" id="tab-marks">
+        <div class="card">
+          <div class="card-title">📝 Marks Report — V BCA Section A</div>
+          <div id="marks-report-table"></div>
+        </div>
+      </div>
+
+      <!-- Semester Report Tab -->
+      <div class="tab-panel" id="tab-semester">
+        <div class="card">
+          <div class="card-title">🎓 Semester Consolidated Report — V BCA 2026-27</div>
+
+          <div class="grid-3" style="margin-bottom:20px;">
+            <div style="background:var(--bg);border-radius:10px;padding:16px;text-align:center;border:1px solid var(--border);">
+              <div style="font-size:2rem;font-weight:800;color:var(--primary)">15</div>
+              <div style="font-size:.78rem;color:var(--muted)">Total Students</div>
+            </div>
+            <div style="background:var(--bg);border-radius:10px;padding:16px;text-align:center;border:1px solid var(--border);">
+              <div style="font-size:2rem;font-weight:800;color:var(--success)" id="sem-pass">—</div>
+              <div style="font-size:.78rem;color:var(--muted)">Pass</div>
+            </div>
+            <div style="background:var(--bg);border-radius:10px;padding:16px;text-align:center;border:1px solid var(--border);">
+              <div style="font-size:2rem;font-weight:800;color:var(--danger)" id="sem-fail">—</div>
+              <div style="font-size:.78rem;color:var(--muted)">Fail</div>
+            </div>
+          </div>
+
+          <div id="semester-table"></div>
+          <div style="margin-top:14px;display:flex;gap:10px;">
+            <button onclick="exportPreview('pdf')" class="btn btn-primary btn-sm">📄 Export PDF</button>
+            <button onclick="exportPreview('excel')" class="btn btn-success btn-sm">📊 Export Excel</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/watsonx.js"></script>
+<script src="js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  initPage('reports', 'Reports & Analytics');
+  buildAttendanceTab();
+  buildMarksTab();
+  buildSemesterTab();
+});
+
+function buildAttendanceTab() {
+  const STUDENTS = APP_DATA.getStudents();
+  const tbody = document.querySelector('#tab-attendance tbody');
+  if (!tbody) return;
+  if (STUDENTS.length === 0) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px;">No students yet.</td></tr>'; return; }
+  tbody.innerHTML = STUDENTS.map((s,i) => {
+    const att = s.attendance || 0;
+    const attended = Math.round(att/100*48);
+    const absent = 48 - attended;
+    return `
+      <tr>
+        <td>${i+1}</td>
+        <td style="font-family:monospace;font-size:.78rem">${s.usn||s.rollNo||''}</td>
+        <td style="font-weight:600">${s.name}</td>
+        <td style="text-align:center">48</td>
+        <td style="text-align:center;color:var(--success);font-weight:700">${attended}</td>
+        <td style="text-align:center;color:var(--danger);font-weight:700">${absent}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div class="progress-bar-wrap" style="width:70px"><div class="progress-bar ${att>=75?'green':'red'}" style="width:${att}%"></div></div>
+            <strong>${att}%</strong>
+          </div>
+        </td>
+        <td><span class="pill ${att>=75?'pill-green':att>=65?'pill-orange':'pill-red'}">${att>=75?'Regular':att>=65?'Shortage':'Detained'}</span></td>
+      </tr>`;
+  }).join('');
+}
+
+function buildMarksTab() {
+  const STUDENTS = APP_DATA.getStudents();
+  const el = document.getElementById('marks-report-table');
+  if (!el) return;
+  if (STUDENTS.length === 0) { el.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">No students yet.</div>'; return; }
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>#</th><th>Roll No.</th><th>Name</th><th>Int. 1/20</th><th>Int. 2/20</th><th>Assignment/10</th><th>Total/50</th><th>%</th><th>Grade</th></tr></thead>
+    <tbody>
+      ${STUDENTS.map((s,i)=>{
+        const total=(s.internal1||0)+(s.internal2||0)+(s.assignment||0);
+        const pct=Math.round(total/50*100);
+        const gr=['F','C','B','B+','A','A+','O'];
+        const gi=pct>=90?6:pct>=80?5:pct>=70?4:pct>=60?3:pct>=50?2:pct>=40?1:0;
+        return `<tr>
+          <td>${i+1}</td><td style="font-family:monospace;font-size:.78rem">${s.usn||s.rollNo||''}</td>
+          <td style="font-weight:600">${s.name}</td>
+          <td style="text-align:center">${s.internal1||0}</td><td style="text-align:center">${s.internal2||0}</td>
+          <td style="text-align:center">${s.assignment||0}</td>
+          <td style="text-align:center;font-weight:800">${total}</td>
+          <td style="text-align:center">${pct}%</td>
+          <td style="text-align:center;font-weight:700">${gr[gi]}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+function buildSemesterTab() {
+  const STUDENTS = APP_DATA.getStudents();
+  const pass = STUDENTS.filter(s => (s.internal1||0)+(s.internal2||0)+(s.assignment||0) >= 25 && (s.attendance||0) >= 75).length;
+  const fail = STUDENTS.length - pass;
+  document.getElementById('sem-pass').textContent = pass;
+  document.getElementById('sem-fail').textContent = fail;
+  document.getElementById('semester-table').innerHTML = STUDENTS.length === 0
+    ? '<div style="color:var(--muted);text-align:center;padding:20px;">No students yet.</div>'
+    : `<div class="table-wrap"><table>
+    <thead><tr><th>#</th><th>Roll No.</th><th>Name</th><th>Att%</th><th>Int1</th><th>Int2</th><th>Asgn</th><th>Total</th><th>Grade</th><th>Eligibility</th></tr></thead>
+    <tbody>
+      ${STUDENTS.map((s,i)=>{
+        const total=(s.internal1||0)+(s.internal2||0)+(s.assignment||0);
+        const eligible = (s.attendance||0)>=75 && total>=25;
+        return `<tr>
+          <td>${i+1}</td><td style="font-family:monospace;font-size:.78rem">${s.usn||s.rollNo||''}</td>
+          <td style="font-weight:600">${s.name}</td>
+          <td>${s.attendance||0}%</td><td>${s.internal1||0}</td><td>${s.internal2||0}</td><td>${s.assignment||0}</td>
+          <td style="font-weight:800">${total}</td>
+          <td>${total>=45?'O':total>=40?'A+':total>=35?'A':total>=30?'B+':total>=25?'B':'F'}</td>
+          <td><span class="pill ${eligible?'pill-green':'pill-red'}">${eligible?'Eligible':'Not Eligible'}</span></td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+function generateReport() {
+  const type = document.getElementById('report-type').value;
+  const subject = document.getElementById('report-subject').value;
+  const preview = document.getElementById('report-preview');
+  const title = document.getElementById('report-preview-title');
+  const content = document.getElementById('report-content');
+
+  preview.style.display = 'block';
+  title.textContent = `${type} — ${subject}`;
+  content.innerHTML = `<div class="alert alert-success">✅ Report generated successfully for <strong>${type}</strong> · ${subject}</div>`;
+  buildAttendanceTab();
+  buildMarksTab();
+  preview.scrollIntoView({ behavior: 'smooth' });
+}
+
+function quickReport(type) {
+  const titles = {
+    'monthly-attendance': 'Monthly Attendance Report',
+    'internal-marks': 'Internal Marks Summary',
+    'at-risk': 'At-Risk Students Report',
+    'performance': 'Student Performance Report',
+    'semester': 'Semester Consolidated Report',
+  };
+  document.getElementById('report-preview').style.display = 'block';
+  document.getElementById('report-preview-title').textContent = titles[type] || type;
+  buildAttendanceTab();
+  buildMarksTab();
+}
+
+async function loadAIReport() {
+  const STUDENTS = APP_DATA.getStudents();
+  const col = APP_DATA.getCollegeInfo();
+  const el = document.getElementById('ai-report-preview');
+  el.style.fontStyle = 'normal'; el.style.color = 'var(--text)';
+  el.textContent = '⏳ Generating AI summary with IBM watsonx…';
+  const res = await WATSONX.generateReport('semester summary', {
+    totalStudents: STUDENTS.length,
+    avgAttendance: STUDENTS.length ? Math.round(STUDENTS.reduce((a,s)=>a+(s.attendance||0),0)/STUDENTS.length) : 0,
+    avgMarks: STUDENTS.length ? (STUDENTS.reduce((a,s)=>a+(s.internal1||0)+(s.internal2||0)+(s.assignment||0),0)/STUDENTS.length).toFixed(1) : 0,
+    passCount: STUDENTS.filter(s=>(s.internal1||0)+(s.internal2||0)+(s.assignment||0)>=25).length,
+    atRisk: STUDENTS.filter(s=>(s.attendance||0)<75).length,
+    semester: `${col.class} · ${col.semester} · ${col.academicYear}`,
+  });
+  el.textContent = res;
+}
+
+function exportPreview(fmt) { alert(`Exporting report as ${fmt.toUpperCase()}…`); }
+function switchTab(id, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+}
+</script>
+</body>
+</html>

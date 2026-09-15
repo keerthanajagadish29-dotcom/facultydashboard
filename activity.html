@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Login Activity – Faculty Portal</title>
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+<div class="shell">
+  <div id="sidebar-placeholder"></div>
+  <div class="main-area">
+    <div id="header-placeholder"></div>
+    <main class="page-content">
+      <div class="page-header">
+        <div><h1>Login Activity & Security</h1><div class="subtitle">Monitor your account access and security events</div></div>
+        <button onclick="clearLog()" class="btn btn-sm" style="background:#ef4444;color:#fff;">🗑 Clear Log</button>
+      </div>
+
+      <div class="stat-grid" style="margin-bottom:22px;">
+        <div class="stat-card"><div class="stat-icon green">✅</div><div><div class="stat-val" id="success-count">—</div><div class="stat-label">Successful Logins</div></div></div>
+        <div class="stat-card"><div class="stat-icon red">❌</div><div><div class="stat-val" id="fail-count">—</div><div class="stat-label">Failed Attempts</div></div></div>
+        <div class="stat-card"><div class="stat-icon blue">📅</div><div><div class="stat-val" id="last-login">—</div><div class="stat-label">Last Login</div></div></div>
+        <div class="stat-card"><div class="stat-icon orange">🔒</div><div><div class="stat-val" id="pw-change">—</div><div class="stat-label">Password Changes</div></div></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">🔒 Account Security Status</div>
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--bg);border-radius:8px;">
+              <div><div style="font-weight:600;font-size:.85rem">Two-Factor Authentication</div><div style="font-size:.75rem;color:var(--muted)">Extra layer of security</div></div>
+              <span class="pill pill-orange">Optional</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--bg);border-radius:8px;">
+              <div><div style="font-weight:600;font-size:.85rem">Password Strength</div><div style="font-size:.75rem;color:var(--muted)">Last changed: Nov 15, 2026</div></div>
+              <span class="pill pill-green">Strong</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--bg);border-radius:8px;">
+              <div><div style="font-weight:600;font-size:.85rem">Session Duration</div><div style="font-size:.75rem;color:var(--muted)">Active session</div></div>
+              <span class="pill pill-blue">Active</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--bg);border-radius:8px;">
+              <div><div style="font-weight:600;font-size:.85rem">Email Verification</div><div style="font-size:.75rem;color:var(--muted)" id="activity-email">—</div></div>
+              <span class="pill pill-green">Verified</span>
+            </div>
+          </div>
+          <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+            <a href="settings.html" class="btn btn-primary btn-sm">🔒 Change Password</a>
+            <button onclick="alert('2FA setup would open here')" class="btn btn-outline btn-sm">🛡 Enable 2FA</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📋 Static Activity Log (from System)</div>
+          <div id="static-log"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:20px;">
+        <div class="card-title">📊 Browser Login History</div>
+        <div id="browser-log"></div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/watsonx.js"></script>
+<script src="js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  initPage('activity', 'Login Activity');
+  buildStaticLog();
+  buildBrowserLog();
+  // Show saved email from profile
+  try {
+    const prof = JSON.parse(localStorage.getItem('portal_profile') || '{}');
+    const emailEl = document.getElementById('activity-email');
+    if (emailEl && prof.email) emailEl.textContent = prof.email;
+  } catch(e) {}
+});
+
+function buildStaticLog() {
+  const el = document.getElementById('static-log');
+  const loginLog = APP_DATA.getLoginActivity();
+  el.innerHTML = loginLog.map(l => {
+    const isFail = l.action.toLowerCase().includes('fail') || l.action.toLowerCase().includes('wrong');
+    const isChange = l.action.toLowerCase().includes('password');
+    const color = isFail ? 'var(--danger)' : isChange ? 'var(--warning)' : 'var(--success)';
+    const icon = isFail ? '❌' : isChange ? '🔑' : '✅';
+    return `
+      <div class="activity-item">
+        <div class="activity-dot" style="background:${color}"></div>
+        <div style="flex:1">
+          <div class="activity-text">${icon} ${l.action}</div>
+          <div class="activity-time">${l.ts || l.timestamp} · ${l.device || ''}</div>
+        </div>
+        <span class="pill ${isFail?'pill-red':isChange?'pill-orange':'pill-green'}" style="font-size:.68rem;">${isFail?'Failed':isChange?'Security':'Success'}</span>
+      </div>`;
+  }).join('');
+
+  const successes = loginLog.filter(l => l.action.toLowerCase().includes('successful')).length;
+  const fails = loginLog.filter(l => l.action.toLowerCase().includes('fail')).length;
+  const changes = loginLog.filter(l => l.action.toLowerCase().includes('password')).length;
+  document.getElementById('success-count').textContent = successes;
+  document.getElementById('fail-count').textContent = fails;
+  document.getElementById('pw-change').textContent = changes;
+  document.getElementById('last-login').textContent = loginLog[0]?.ts?.split(',')[0] || '—';
+}
+
+function buildBrowserLog() {
+  const el = document.getElementById('browser-log');
+  const log = JSON.parse(localStorage.getItem('login_log') || '[]');
+  if (log.length === 0) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;padding:10px;">No browser-stored login history yet. Login again to populate.</div>';
+    return;
+  }
+  el.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Timestamp</th><th>Action</th><th>Device/Browser</th></tr></thead>
+        <tbody>
+          ${log.map((l,i) => `
+            <tr>
+              <td>${i+1}</td>
+              <td>${l.ts}</td>
+              <td style="font-weight:600">${l.action}</td>
+              <td style="font-size:.76rem">${l.device}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function clearLog() {
+  if (confirm('Clear browser login history?')) {
+    localStorage.removeItem('login_log');
+    buildBrowserLog();
+  }
+}
+</script>
+</body>
+</html>

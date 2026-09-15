@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Timetable – Faculty Portal</title>
+<link rel="stylesheet" href="css/style.css"/>
+<style>
+  .tt-table { border-collapse: collapse; width: 100%; font-size: .8rem; }
+  .tt-table th { background: var(--primary); color: #fff; padding: 10px 8px; border: 1px solid #2563ab; white-space: nowrap; text-align: center; }
+  .tt-table td { border: 1px solid var(--border); vertical-align: top; min-width: 90px; }
+  .tt-day-col { background: var(--primary); color: #fff; font-weight: 700; text-align: center; padding: 10px 8px; font-size: .8rem; white-space: nowrap; }
+  .tt-cell { padding: 8px; min-height: 64px; cursor: pointer; transition: background .15s; }
+  .tt-cell:hover { background: #f0f9ff; }
+  .tt-cell.lecture { background: #eff6ff; }
+  .tt-cell.lab     { background: #fef9c3; }
+  .tt-cell.break   { background: #f8fafc; text-align: center; color: var(--muted); font-size: .72rem; cursor: default; }
+  .tt-cell.current { background: #d1fae5; border-left: 3px solid var(--success); }
+  .tt-cell .subj  { font-weight: 700; color: var(--primary); font-size: .76rem; }
+  .tt-cell .fac   { color: var(--muted); font-size: .68rem; margin-top: 2px; }
+  .tt-cell .rm    { color: var(--warning); font-size: .68rem; font-weight: 600; }
+
+  /* Builder */
+  .slot-row { display: grid; grid-template-columns: 1fr 1fr 1fr 80px 80px 36px; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .slot-row input, .slot-row select { padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-size: .8rem; width: 100%; }
+  .slot-row input:focus, .slot-row select:focus { border-color: var(--primary-light); outline: none; }
+  .del-btn { background: #fee2e2; border: none; color: var(--danger); border-radius: 6px; width: 34px; height: 34px; cursor: pointer; font-size: .9rem; }
+  .empty-tt { text-align: center; padding: 40px 20px; color: var(--muted); }
+  .empty-tt .icon { font-size: 2.5rem; margin-bottom: 10px; }
+
+  /* Upload */
+  .upload-zone { border: 2.5px dashed var(--border); border-radius: 12px; padding: 40px 24px; text-align: center; cursor: pointer; transition: border-color .2s, background .2s; }
+  .upload-zone:hover, .upload-zone.drag-over { border-color: var(--primary-light); background: #eff6ff; }
+  .upload-zone .upload-icon { font-size: 2.8rem; margin-bottom: 10px; }
+  .upload-zone p { margin: 4px 0; font-size: .85rem; color: var(--muted); }
+  .upload-zone strong { color: var(--primary); }
+  #upload-preview-table { width:100%; border-collapse:collapse; font-size:.78rem; margin-top:4px; }
+  #upload-preview-table th { background:var(--primary); color:#fff; padding:7px 10px; border:1px solid #2563ab; }
+  #upload-preview-table td { border:1px solid var(--border); padding:6px 10px; vertical-align:middle; }
+  #upload-preview-table tr:nth-child(even) td { background:#f7f8fa; }
+  .upload-badge { display:inline-block; padding:2px 8px; border-radius:99px; font-size:.7rem; font-weight:700; }
+  .upload-badge.lecture { background:#eff6ff; color:#1d4ed8; }
+  .upload-badge.lab     { background:#fef9c3; color:#92400e; }
+  .upload-badge.break   { background:#f8fafc; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div id="sidebar-placeholder"></div>
+  <div class="main-area">
+    <div id="header-placeholder"></div>
+    <main class="page-content">
+
+      <div class="page-header">
+        <div>
+          <h1>Timetable</h1>
+          <div class="subtitle" id="tt-subtitle">Your weekly class schedule</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="showTab('builder')" class="btn btn-primary btn-sm">✏️ Build / Edit Timetable</button>
+          <button onclick="window.print()" class="btn btn-outline btn-sm">🖨 Print</button>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" id="tab-btn-view"    onclick="showTab('view')">Weekly View</div>
+        <div class="tab"        id="tab-btn-daily"   onclick="showTab('daily')">Today's View</div>
+        <div class="tab"        id="tab-btn-builder" onclick="showTab('builder')">✏️ Build Timetable</div>
+        <div class="tab"        id="tab-btn-upload"  onclick="showTab('upload')">📤 Upload Timetable</div>
+      </div>
+
+      <!-- ── Weekly View ─────────────────────────────────────── -->
+      <div id="tab-view">
+        <div class="card">
+          <div id="tt-header-info" style="margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="tt-table" id="tt-weekly"></table>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:14px;flex-wrap:wrap;font-size:.76rem;">
+            <span><span style="display:inline-block;width:14px;height:14px;background:#eff6ff;border:1px solid #93c5fd;border-radius:3px;vertical-align:middle;margin-right:4px;"></span>Lecture</span>
+            <span><span style="display:inline-block;width:14px;height:14px;background:#fef9c3;border:1px solid #fcd34d;border-radius:3px;vertical-align:middle;margin-right:4px;"></span>Lab</span>
+            <span><span style="display:inline-block;width:14px;height:14px;background:#d1fae5;border:1px solid #6ee7b7;border-radius:3px;vertical-align:middle;margin-right:4px;"></span>Current Period</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Daily View ──────────────────────────────────────── -->
+      <div id="tab-daily" style="display:none;">
+        <div class="card">
+          <div class="card-title">📅 Today — <span id="today-label"></span></div>
+          <div id="daily-list"></div>
+        </div>
+      </div>
+
+      <!-- ── Upload ─────────────────────────────────────────── -->
+      <div id="tab-upload" style="display:none;">
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">📷 Upload Timetable Photo</div>
+          <div class="alert alert-info" style="margin-bottom:16px;">
+            Take a photo of your printed timetable or upload any image — it will be displayed here for reference while you fill in the schedule using the <strong>Build Timetable</strong> tab.
+          </div>
+
+          <!-- Drop zone -->
+          <div class="upload-zone" id="upload-zone" onclick="document.getElementById('tt-img-input').click()"
+               ondragover="event.preventDefault();this.classList.add('drag-over')"
+               ondragleave="this.classList.remove('drag-over')"
+               ondrop="handleImgDrop(event)">
+            <div class="upload-icon">🖼️</div>
+            <p><strong>Click to browse</strong> or drag &amp; drop your timetable photo</p>
+            <p>Supported formats: <strong>.jpg</strong> &nbsp;·&nbsp; <strong>.jpeg</strong> &nbsp;·&nbsp; <strong>.png</strong> &nbsp;·&nbsp; <strong>.webp</strong></p>
+          </div>
+          <input type="file" id="tt-img-input" accept="image/*" style="display:none" onchange="handleImgSelect(event)"/>
+
+          <!-- Error banner -->
+          <div id="upload-error" class="alert alert-danger" style="display:none;margin-top:14px;"></div>
+
+          <!-- Image preview -->
+          <div id="img-preview-wrap" style="display:none;margin-top:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+              <div style="font-weight:700;font-size:.95rem;color:var(--primary)">🖼️ Timetable Photo — <span id="img-filename"></span></div>
+              <div style="display:flex;gap:8px;">
+                <button onclick="clearImgUpload()" class="btn btn-sm" style="background:#fee2e2;color:var(--danger);border:none;">✕ Remove</button>
+                <button onclick="saveImgAndSwitch()" class="btn btn-success">✅ Use This &amp; Build Timetable</button>
+              </div>
+            </div>
+            <div style="border:2px solid var(--border);border-radius:10px;overflow:hidden;max-height:480px;text-align:center;background:#f7f8fa;">
+              <img id="tt-img-preview" src="" alt="Timetable preview"
+                   style="max-width:100%;max-height:480px;object-fit:contain;display:block;margin:0 auto;"/>
+            </div>
+            <div style="margin-top:12px;font-size:.78rem;color:var(--muted);display:flex;gap:6px;align-items:center;">
+              📌 Refer to this image while filling in your timetable in the <strong>Build Timetable</strong> tab. The image is saved locally in your browser.
+            </div>
+          </div>
+        </div>
+
+        <!-- Tips card -->
+        <div class="card">
+          <div class="card-title">📸 Photo Tips</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div>
+              <div style="font-weight:700;font-size:.82rem;margin-bottom:8px;color:var(--primary);">For best results</div>
+              <p style="font-size:.78rem;color:var(--muted);margin:0;line-height:1.7;">
+                • Place the timetable on a flat surface<br>
+                • Ensure good lighting — avoid shadows<br>
+                • Hold your phone directly above it<br>
+                • Make sure all rows &amp; columns are visible<br>
+                • JPG or PNG from phone camera works perfectly
+              </p>
+            </div>
+            <div>
+              <div style="font-weight:700;font-size:.82rem;margin-bottom:8px;color:var(--primary);">How to use</div>
+              <p style="font-size:.78rem;color:var(--muted);margin:0;line-height:1.7;">
+                1. Upload your timetable photo here<br>
+                2. Click <strong>"Use This &amp; Build Timetable"</strong><br>
+                3. The photo will stay visible as a sidebar reference<br>
+                4. Fill in the schedule using the Build tab<br>
+                5. Click <strong>Save Timetable</strong> when done
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Builder ────────────────────────────────────────── -->
+      <div id="tab-builder" style="display:none;">
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">⚙️ Class Information</div>
+          <div class="form-row-3">
+            <div class="form-group">
+              <label class="form-label">College / School Name</label>
+              <input type="text" id="b-college" class="form-control" placeholder="e.g. ABC College"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Department / Class</label>
+              <input type="text" id="b-class" class="form-control" placeholder="e.g. III BCA Section A"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Semester / Academic Year</label>
+              <input type="text" id="b-sem" class="form-control" placeholder="e.g. Semester 5 · 2025-26"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📅 Add Class Periods</div>
+          <div class="alert alert-info" style="margin-bottom:14px;">
+            Fill in the periods below for each day. Leave rows blank to remove them. Click <strong>Save Timetable</strong> when done.
+          </div>
+
+          <!-- Day selector -->
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;" id="day-tabs">
+            <button class="btn btn-primary btn-sm" onclick="selectDay('Monday',this)">Mon</button>
+            <button class="btn btn-outline btn-sm" onclick="selectDay('Tuesday',this)">Tue</button>
+            <button class="btn btn-outline btn-sm" onclick="selectDay('Wednesday',this)">Wed</button>
+            <button class="btn btn-outline btn-sm" onclick="selectDay('Thursday',this)">Thu</button>
+            <button class="btn btn-outline btn-sm" onclick="selectDay('Friday',this)">Fri</button>
+            <button class="btn btn-outline btn-sm" onclick="selectDay('Saturday',this)">Sat</button>
+          </div>
+
+          <div id="active-day-label" style="font-weight:700;font-size:.95rem;color:var(--primary);margin-bottom:12px;">Monday</div>
+
+          <!-- Column headers -->
+          <div class="slot-row" style="font-size:.75rem;font-weight:700;color:var(--muted);margin-bottom:4px;">
+            <span>Subject Name</span>
+            <span>Faculty Name</span>
+            <span>Room / Location</span>
+            <span>Start Time</span>
+            <span>End Time</span>
+            <span></span>
+          </div>
+
+          <div id="slot-rows"></div>
+
+          <div style="display:flex;gap:10px;margin-top:12px;">
+            <button onclick="addSlotRow()" class="btn btn-outline btn-sm">+ Add Period</button>
+            <button onclick="addBreakRow()" class="btn btn-sm" style="background:#fef3c7;border:1px solid #fcd34d;color:#92400e;">+ Add Break</button>
+          </div>
+
+          <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
+            <button onclick="saveTimetable()" class="btn btn-success">💾 Save Timetable</button>
+            <button onclick="clearDaySlots()" class="btn btn-sm" style="background:#fee2e2;color:var(--danger);border:none;">🗑 Clear This Day</button>
+            <button onclick="clearAllTimetable()" class="btn btn-sm" style="background:#fee2e2;color:var(--danger);border:none;">🗑 Clear All Days</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/watsonx.js"></script>
+<script src="js/app.js"></script>
+<script>
+const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+let activeDay = 'Monday';
+// In-memory timetable being edited
+let editTT = {};
+
+document.addEventListener('DOMContentLoaded', () => {
+  initPage('timetable', 'Timetable');
+  const col = APP_DATA.getCollegeInfo();
+  document.getElementById('tt-subtitle').textContent = `${col.class || 'Your class'} · ${col.semester || ''} · ${col.academicYear}`;
+
+  document.getElementById('today-label').textContent = getDay() + ', ' + new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'});
+
+  // Load college info into builder fields
+  document.getElementById('b-college').value = col.name || '';
+  document.getElementById('b-class').value   = col.class || '';
+  document.getElementById('b-sem').value     = col.semester + ' · ' + col.academicYear;
+
+  // Copy stored timetable into editTT
+  const stored = APP_DATA.getTimetable();
+  stored.forEach(d => { editTT[d.day] = d.slots ? JSON.parse(JSON.stringify(d.slots)) : []; });
+  DAYS.forEach(d => { if (!editTT[d]) editTT[d] = []; });
+
+  renderWeekly();
+  renderDaily();
+  renderBuilderDay('Monday');
+
+  // Restore previously uploaded timetable photo
+  const savedPhoto = localStorage.getItem('tt_photo');
+  if (savedPhoto) {
+    document.getElementById('tt-img-preview').src = savedPhoto;
+    document.getElementById('img-filename').textContent = 'Saved photo';
+    document.getElementById('img-preview-wrap').style.display = 'block';
+  }
+});
+
+/* ── Tab switching ──────────────────────────────────────────── */
+function showTab(id) {
+  ['view','daily','builder','upload'].forEach(t => {
+    document.getElementById('tab-' + t).style.display = t === id ? 'block' : 'none';
+    document.getElementById('tab-btn-' + t).classList.toggle('active', t === id);
+  });
+}
+
+/* ── Weekly table ───────────────────────────────────────────── */
+function renderWeekly() {
+  const tt = APP_DATA.getTimetable();
+  const table = document.getElementById('tt-weekly');
+  const col = APP_DATA.getCollegeInfo();
+
+  // Header info
+  document.getElementById('tt-header-info').innerHTML = `
+    <strong>${col.name}</strong>
+    <span class="pill pill-blue">${col.class || '—'}</span>
+    <span class="pill pill-green">${col.semester || '—'}</span>
+    <span class="pill pill-gray">${col.academicYear}</span>`;
+
+  // Collect all unique time slots across all days
+  const allTimes = new Set();
+  tt.forEach(d => d.slots.forEach(s => allTimes.add(s.time)));
+  const times = Array.from(allTimes).sort();
+
+  if (times.length === 0) {
+    table.closest('.card').querySelector('div[style*="overflow"]').innerHTML = `
+      <div class="empty-tt">
+        <div class="icon">🗓</div>
+        <div style="font-weight:700;font-size:.95rem;margin-bottom:6px;">No timetable yet</div>
+        <div style="font-size:.82rem;color:var(--muted)">Click <strong>"Build / Edit Timetable"</strong> above to add your class schedule.</div>
+      </div>`;
+    return;
+  }
+
+  const now = new Date();
+  const nowMin = now.getHours()*60 + now.getMinutes();
+  const todayName = getDay();
+
+  let html = '<thead><tr><th style="min-width:70px">Day</th>';
+  times.forEach(t => { html += `<th style="min-width:100px">${t}</th>`; });
+  html += '</tr></thead><tbody>';
+
+  tt.forEach(dayData => {
+    html += `<tr><td class="tt-day-col">${dayData.day.substring(0,3)}<br><small style="font-weight:400;font-size:.65rem">${dayData.day}</small></td>`;
+    times.forEach(time => {
+      const slot = dayData.slots.find(s => s.time === time);
+      if (!slot) { html += '<td><div class="tt-cell"></div></td>'; return; }
+      if (slot.type === 'break') { html += `<td><div class="tt-cell break">☕ Break</div></td>`; return; }
+
+      // Check if current
+      let isCurrent = false;
+      if (dayData.day === todayName) {
+        const parts = time.split('–');
+        if (parts.length === 2) {
+          const [sh,sm] = parts[0].trim().split(':').map(Number);
+          const [eh,em] = parts[1].trim().split(':').map(Number);
+          if (!isNaN(sh) && !isNaN(eh)) {
+            const startMin = sh*60+(sm||0), endMin = eh*60+(em||0);
+            isCurrent = nowMin >= startMin && nowMin < endMin;
+          }
+        }
+      }
+      html += `<td><div class="tt-cell ${isCurrent?'current':slot.type||'lecture'}">
+        ${isCurrent ? '<div style="font-size:.62rem;color:var(--success);font-weight:700">🔴 LIVE</div>' : ''}
+        <div class="subj">${slot.subject}</div>
+        ${slot.faculty ? `<div class="fac">${slot.faculty}</div>` : ''}
+        ${slot.room    ? `<div class="rm">Room ${slot.room}</div>` : ''}
+      </div></td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+/* ── Daily view ─────────────────────────────────────────────── */
+function renderDaily() {
+  const todayName = getDay();
+  const tt = APP_DATA.getTimetable();
+  const dayData = tt.find(d => d.day === todayName);
+  const el = document.getElementById('daily-list');
+  if (!dayData || dayData.slots.length === 0) {
+    el.innerHTML = '<div style="color:var(--muted);padding:16px;text-align:center;">No classes scheduled for today. <a href="#" onclick="showTab(\'builder\')">Build your timetable →</a></div>';
+    return;
+  }
+  const now = new Date(), nowMin = now.getHours()*60+now.getMinutes();
+  el.innerHTML = dayData.slots.map(slot => {
+    if (slot.type === 'break') return `
+      <div style="padding:10px 14px;background:#f8fafc;border-radius:8px;margin-bottom:8px;display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--muted);">
+        ☕ <strong>${slot.time}</strong> — Break
+      </div>`;
+    let status = 'upcoming', color = '#eff6ff';
+    const parts = slot.time.split('–');
+    if (parts.length === 2) {
+      const [sh,sm] = parts[0].trim().split(':').map(Number);
+      const [eh,em] = parts[1].trim().split(':').map(Number);
+      if (!isNaN(sh)) {
+        const s = sh*60+(sm||0), e = eh*60+(em||0);
+        if (nowMin >= s && nowMin < e) { status = 'current'; color = '#d1fae5'; }
+        else if (nowMin >= e)          { status = 'past';    color = '#f8fafc'; }
+      }
+    }
+    return `
+      <div style="display:flex;gap:14px;align-items:flex-start;padding:14px;background:${color};border-radius:10px;margin-bottom:10px;">
+        <div style="background:#fff;border-radius:8px;padding:8px 10px;border:1px solid var(--border);white-space:nowrap;font-size:.72rem;font-weight:700;color:var(--primary);">${slot.time}</div>
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:.88rem;color:var(--primary)">${slot.subject}</div>
+          ${slot.faculty ? `<div style="font-size:.78rem;color:var(--muted)">${slot.faculty}</div>` : ''}
+          ${slot.room    ? `<div style="font-size:.75rem;color:var(--warning);font-weight:600">Room ${slot.room}</div>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
+          <span class="pill ${status==='current'?'pill-green':status==='past'?'pill-gray':'pill-blue'}">${status==='current'?'🔴 LIVE NOW':status==='past'?'✓ Done':'⏰ Upcoming'}</span>
+          ${slot.type === 'lab' ? '<span class="pill pill-orange">Lab</span>' : ''}
+        </div>
+        ${status === 'current' ? `<a href="attendance.html" class="btn btn-sm btn-success">✅ Attendance</a>` : ''}
+      </div>`;
+  }).join('');
+}
+
+/* ── Builder ─────────────────────────────────────────────────── */
+function selectDay(day, btn) {
+  activeDay = day;
+  document.querySelectorAll('#day-tabs button').forEach(b => { b.className = 'btn btn-outline btn-sm'; });
+  btn.className = 'btn btn-primary btn-sm';
+  document.getElementById('active-day-label').textContent = day;
+  renderBuilderDay(day);
+}
+
+function renderBuilderDay(day) {
+  const container = document.getElementById('slot-rows');
+  container.innerHTML = '';
+  const slots = editTT[day] || [];
+  slots.forEach((s, i) => addSlotRow(s, i));
+  if (slots.length === 0) addSlotRow();
+}
+
+function addSlotRow(slot, idx) {
+  const container = document.getElementById('slot-rows');
+  const div = document.createElement('div');
+  div.className = 'slot-row';
+  const isBreak = slot && slot.type === 'break';
+  div.innerHTML = `
+    <input type="text" placeholder="${isBreak ? 'Break / Lunch' : 'Subject name'}"
+           value="${slot ? slot.subject || '' : ''}"
+           class="slot-subj" ${isBreak ? 'style="background:#fef9c3"' : ''}/>
+    <input type="text" placeholder="Faculty name"
+           value="${slot ? slot.faculty || '' : ''}" class="slot-fac"/>
+    <input type="text" placeholder="Room no."
+           value="${slot ? slot.room || '' : ''}" class="slot-room"/>
+    <input type="text" placeholder="09:00" maxlength="5"
+           value="${slot ? (slot.time||'').split('–')[0]||'' : ''}" class="slot-start"/>
+    <input type="text" placeholder="10:00" maxlength="5"
+           value="${slot ? (slot.time||'').split('–')[1]||'' : ''}" class="slot-end"/>
+    <button class="del-btn" onclick="this.closest('.slot-row').remove()">✕</button>`;
+  container.appendChild(div);
+}
+
+function addBreakRow() {
+  addSlotRow({ subject: 'Break', faculty: '', room: '', time: '–', type: 'break' });
+}
+
+function clearDaySlots() {
+  if (!confirm(`Clear all periods for ${activeDay}?`)) return;
+  editTT[activeDay] = [];
+  renderBuilderDay(activeDay);
+}
+
+function clearAllTimetable() {
+  if (!confirm('Clear the entire timetable for all days?')) return;
+  DAYS.forEach(d => { editTT[d] = []; });
+  APP_DATA.saveTimetable(DAYS.map(d => ({ day: d, slots: [] })));
+  renderBuilderDay(activeDay);
+  alert('Timetable cleared.');
+}
+
+function saveTimetable() {
+  // Save college info
+  const colName = document.getElementById('b-college').value.trim();
+  const colClass = document.getElementById('b-class').value.trim();
+  const colSem   = document.getElementById('b-sem').value.trim();
+  const col = APP_DATA.getCollegeInfo();
+  APP_DATA.saveCollegeInfo({ ...col,
+    name: colName || col.name,
+    class: colClass || col.class,
+    semester: colSem || col.semester,
+  });
+
+  // Read rows for active day
+  const rows = document.querySelectorAll('#slot-rows .slot-row');
+  const slots = [];
+  rows.forEach(row => {
+    const subj  = row.querySelector('.slot-subj').value.trim();
+    const fac   = row.querySelector('.slot-fac').value.trim();
+    const room  = row.querySelector('.slot-room').value.trim();
+    const start = row.querySelector('.slot-start').value.trim();
+    const end   = row.querySelector('.slot-end').value.trim();
+    if (!subj) return;
+    const isBreak = subj.toLowerCase().includes('break') || subj.toLowerCase().includes('lunch');
+    slots.push({
+      subject: subj,
+      faculty: fac,
+      room: room,
+      time: start && end ? `${start}–${end}` : start || '—',
+      type: isBreak ? 'break' : (subj.toLowerCase().includes('lab') ? 'lab' : 'lecture'),
+    });
+  });
+  editTT[activeDay] = slots;
+
+  // Persist all days
+  const ttArray = DAYS.map(d => ({ day: d, slots: editTT[d] || [] }));
+  APP_DATA.saveTimetable(ttArray);
+  APP_DATA.appendAudit('Timetable updated', 'Timetable', `${activeDay} – ${slots.length} periods`);
+
+  // Refresh views
+  renderWeekly();
+  renderDaily();
+
+  // Visual feedback
+  const btn = document.querySelector('#tab-builder .btn-success');
+  if (btn) { btn.textContent = '✅ Saved!'; setTimeout(() => { btn.textContent = '💾 Save Timetable'; }, 2000); }
+
+  document.getElementById('tt-subtitle').textContent =
+    `${APP_DATA.getCollegeInfo().class || 'Your class'} · ${APP_DATA.getCollegeInfo().semester || ''} · ${APP_DATA.getCollegeInfo().academicYear}`;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   UPLOAD TIMETABLE — IMAGE PHOTO
+   ══════════════════════════════════════════════════════════════ */
+
+function handleImgDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) processImgFile(file);
+}
+
+function handleImgSelect(e) {
+  const file = e.target.files[0];
+  if (file) processImgFile(file);
+  e.target.value = '';  // allow re-selecting the same file
+}
+
+function processImgFile(file) {
+  hideUploadError();
+  if (!file.type.startsWith('image/')) {
+    showUploadError('Please upload an image file (JPG, PNG, WEBP, etc.).');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    const dataUrl = ev.target.result;
+    // Show preview
+    document.getElementById('tt-img-preview').src = dataUrl;
+    document.getElementById('img-filename').textContent = file.name;
+    document.getElementById('img-preview-wrap').style.display = 'block';
+    // Persist in localStorage so it survives page refresh
+    try { localStorage.setItem('tt_photo', dataUrl); } catch(e) { /* quota */ }
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearImgUpload() {
+  document.getElementById('tt-img-preview').src = '';
+  document.getElementById('img-preview-wrap').style.display = 'none';
+  document.getElementById('img-filename').textContent = '';
+  localStorage.removeItem('tt_photo');
+  hideUploadError();
+}
+
+function saveImgAndSwitch() {
+  // Switch to builder tab with the photo pinned as a floating reference panel
+  showTab('builder');
+  showPhotoPanel();
+}
+
+/* ── Floating photo reference panel in builder ─────────────── */
+function showPhotoPanel() {
+  if (document.getElementById('tt-photo-panel')) return; // already shown
+  const src = document.getElementById('tt-img-preview').src ||
+              localStorage.getItem('tt_photo');
+  if (!src) return;
+
+  const panel = document.createElement('div');
+  panel.id = 'tt-photo-panel';
+  panel.style.cssText = `
+    position:fixed; bottom:24px; right:24px; width:340px; max-height:420px;
+    background:#fff; border:2px solid var(--border); border-radius:12px;
+    box-shadow:0 4px 24px rgba(0,0,0,.13); z-index:9999;
+    display:flex; flex-direction:column; overflow:hidden;`;
+  panel.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;
+                padding:8px 12px;background:var(--primary);color:#fff;font-size:.8rem;font-weight:700;">
+      📷 Timetable Photo Reference
+      <button onclick="document.getElementById('tt-photo-panel').remove()"
+              style="background:none;border:none;color:#fff;font-size:1rem;cursor:pointer;line-height:1;">✕</button>
+    </div>
+    <div style="overflow:auto;flex:1;">
+      <img src="${src}" style="width:100%;display:block;" alt="Timetable reference"/>
+    </div>`;
+  document.body.appendChild(panel);
+}
+
+function showUploadError(msg) {
+  const el = document.getElementById('upload-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function hideUploadError() {
+  document.getElementById('upload-error').style.display = 'none';
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Dashboard – Faculty Portal</title>
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+<div class="shell">
+  <div id="sidebar-placeholder"></div>
+  <div class="main-area">
+    <div id="header-placeholder"></div>
+    <main class="page-content">
+
+      <!-- Welcome Banner -->
+      <div class="card" style="background:linear-gradient(135deg,#1a3c6e,#2563ab);color:#fff;margin-bottom:22px;position:relative;overflow:hidden;">
+        <div style="position:absolute;right:-30px;top:-30px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.06)"></div>
+        <div style="position:relative">
+          <div style="font-size:1.2rem;font-weight:800">Good <span id="greeting-time"></span>, <span id="faculty-greeting"></span>! 👋</div>
+          <div style="font-size:.83rem;opacity:.85;margin-top:4px;" id="banner-subtitle">Faculty Portal</div>
+          <div style="display:flex;gap:12px;margin-top:14px;flex-wrap:wrap;">
+            <div style="background:rgba(255,255,255,.15);padding:8px 14px;border-radius:8px;font-size:.78rem;">📅 <strong id="today-date"></strong></div>
+            <div style="background:rgba(255,255,255,.15);padding:8px 14px;border-radius:8px;font-size:.78rem;">🕐 <span id="live-time"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stat-grid" id="stat-grid" style="margin-bottom:24px;"></div>
+
+      <div class="grid-2" style="margin-bottom:22px;">
+        <!-- Today's Timetable -->
+        <div class="card">
+          <div class="card-title">🗓 Today's Schedule — <span id="today-day"></span></div>
+          <div id="today-schedule"></div>
+          <div style="margin-top:12px;"><a href="timetable.html" class="btn btn-outline btn-sm">View Full Timetable →</a></div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card">
+          <div class="card-title">⚡ Quick Actions</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <a href="attendance.html" class="btn btn-primary" style="justify-content:center;">✅ Mark Attendance</a>
+            <a href="marks.html" class="btn btn-success" style="justify-content:center;">📊 Upload Marks</a>
+            <a href="timetable.html" class="btn btn-outline" style="justify-content:center;">🗓 Build Timetable</a>
+            <a href="subjects.html" class="btn btn-outline" style="justify-content:center;">📚 My Subjects</a>
+            <button onclick="openWatsonxPanel()" class="btn" style="background:#1a3c6e;color:#fff;justify-content:center;">🤖 Ask AI</button>
+            <a href="reports.html" class="btn btn-outline" style="justify-content:center;">📋 Reports</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:22px;">
+        <!-- Announcements -->
+        <div class="card">
+          <div class="card-title">📢 Announcements</div>
+          <div id="announcement-list"></div>
+          <div style="margin-top:10px;display:flex;gap:8px;">
+            <a href="announcements.html" class="btn btn-outline btn-sm">View All →</a>
+            <a href="announcements.html" class="btn btn-primary btn-sm">+ New</a>
+          </div>
+        </div>
+
+        <!-- Students -->
+        <div class="card">
+          <div class="card-title">🎓 Student Overview</div>
+          <div id="student-overview"></div>
+          <div style="margin-top:10px;"><a href="performance.html" class="btn btn-outline btn-sm">Performance Reports →</a></div>
+        </div>
+      </div>
+
+      <!-- Attendance log -->
+      <div class="card" style="margin-bottom:22px;">
+        <div class="card-title">✅ Recent Attendance Submissions</div>
+        <div id="att-log-list"></div>
+        <div style="margin-top:10px;"><a href="attendance.html" class="btn btn-primary btn-sm">Mark Attendance →</a></div>
+      </div>
+
+      <!-- watsonx AI Insight -->
+      <div class="card" style="border-left:4px solid var(--primary);">
+        <div class="card-title">🤖 IBM watsonx AI Insights</div>
+        <div id="ai-insight" style="font-size:.83rem;color:var(--muted);font-style:italic;">Click Refresh to load AI insights.</div>
+        <div style="margin-top:12px;display:flex;gap:10px;">
+          <button onclick="loadAIInsight()" class="btn btn-sm btn-primary">🔄 Refresh Insights</button>
+          <button onclick="openWatsonxPanel()" class="btn btn-sm btn-outline">💬 Chat with AI</button>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/watsonx.js"></script>
+<script src="js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  initPage('dashboard', 'Dashboard');
+
+  const h = new Date().getHours();
+  document.getElementById('greeting-time').textContent = h < 12 ? 'Morning' : h < 17 ? 'Afternoon' : 'Evening';
+  document.getElementById('faculty-greeting').textContent = sessionStorage.getItem('faculty_name') || 'Faculty';
+  document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-IN', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+  const col = APP_DATA.getCollegeInfo();
+  document.getElementById('banner-subtitle').textContent = `${col.name} · ${col.class || ''} · ${col.semester || ''} · ${col.academicYear}`;
+
+  const todayName = getDay();
+  document.getElementById('today-day').textContent = todayName;
+  function updateClock() { document.getElementById('live-time').textContent = getCurrentTime(); }
+  updateClock(); setInterval(updateClock, 1000);
+
+  renderStats();
+  renderTodaySchedule(todayName);
+  renderAnnouncements();
+  renderStudentOverview();
+  renderAttLog();
+  loadAIInsight();
+});
+
+function renderStats() {
+  const students = APP_DATA.getStudents();
+  const subjects = APP_DATA.getSubjects();
+  const attLog   = APP_DATA.getAttendanceLog();
+  const anns     = APP_DATA.getAnnouncements();
+
+  const below75  = students.filter(s => s.attendance < 75).length;
+  const avgAtt   = students.length ? Math.round(students.reduce((a,s)=>a+s.attendance,0)/students.length) : 0;
+
+  document.getElementById('stat-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-icon blue">📚</div><div><div class="stat-val">${subjects.length}</div><div class="stat-label">Subjects</div></div></div>
+    <div class="stat-card"><div class="stat-icon green">🎓</div><div><div class="stat-val">${students.length}</div><div class="stat-label">Students</div></div></div>
+    <div class="stat-card"><div class="stat-icon teal">✅</div><div><div class="stat-val">${avgAtt || '—'}${students.length ? '%' : ''}</div><div class="stat-label">Avg Attendance</div></div></div>
+    <div class="stat-card"><div class="stat-icon red">⚠️</div><div><div class="stat-val">${below75}</div><div class="stat-label">Below 75%</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">📋</div><div><div class="stat-val">${attLog.length}</div><div class="stat-label">Att. Submissions</div></div></div>
+    <div class="stat-card"><div class="stat-icon purple">📢</div><div><div class="stat-val">${anns.length}</div><div class="stat-label">Announcements</div></div></div>`;
+}
+
+function renderTodaySchedule(todayName) {
+  const tt = APP_DATA.getTimetable();
+  const dayData = tt.find(d => d.day === todayName);
+  const el = document.getElementById('today-schedule');
+  if (!dayData || dayData.slots.length === 0) {
+    el.innerHTML = `<div style="color:var(--muted);font-size:.82rem;padding:8px 0;">
+      No timetable for today. <a href="timetable.html">Build your timetable →</a></div>`;
+    return;
+  }
+  const classes = dayData.slots.filter(s => s.type !== 'break');
+  el.innerHTML = classes.map(s => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+      <div style="background:${s.type==='lab'?'#fef3c7':'#eff6ff'};border-radius:6px;padding:4px 8px;font-size:.72rem;font-weight:700;color:${s.type==='lab'?'#92400e':'#1e40af'};white-space:nowrap;">${s.time}</div>
+      <div style="flex:1">
+        <div style="font-size:.82rem;font-weight:700;color:var(--primary)">${s.subject}</div>
+        <div style="font-size:.72rem;color:var(--muted)">${s.faculty || ''}${s.room ? ' · Room ' + s.room : ''}</div>
+      </div>
+      <span class="pill ${s.type==='lab'?'pill-orange':'pill-blue'}">${s.type}</span>
+    </div>`).join('');
+}
+
+function renderAnnouncements() {
+  const anns = APP_DATA.getAnnouncements();
+  const el = document.getElementById('announcement-list');
+  if (anns.length === 0) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;padding:8px 0;">No announcements yet. <a href="announcements.html">Add one →</a></div>';
+    return;
+  }
+  el.innerHTML = anns.slice(0,3).map(a => `
+    <div style="padding:8px 0;border-bottom:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div style="font-size:.82rem;font-weight:600;">${a.title}</div>
+        <span class="pill ${a.priority==='high'?'pill-red':a.priority==='medium'?'pill-orange':'pill-gray'}">${a.priority}</span>
+      </div>
+      <div style="font-size:.72rem;color:var(--muted);">${formatDate(a.date)} · ${a.by}</div>
+    </div>`).join('');
+}
+
+function renderStudentOverview() {
+  const students = APP_DATA.getStudents();
+  const el = document.getElementById('student-overview');
+  if (students.length === 0) {
+    el.innerHTML = `<div style="color:var(--muted);font-size:.82rem;padding:8px 0;">No students added yet. <a href="admin.html">Go to Admin →</a></div>`;
+    return;
+  }
+  const above75 = students.filter(s => s.attendance >= 75).length;
+  const below75 = students.filter(s => s.attendance < 75).length;
+  const avg = Math.round(students.reduce((a,s)=>a+s.attendance,0)/students.length);
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;">
+      <div style="text-align:center;background:var(--bg);border-radius:8px;padding:10px;">
+        <div style="font-size:1.4rem;font-weight:800;color:var(--success)">${above75}</div>
+        <div style="font-size:.72rem;color:var(--muted)">Regular</div>
+      </div>
+      <div style="text-align:center;background:var(--bg);border-radius:8px;padding:10px;">
+        <div style="font-size:1.4rem;font-weight:800;color:var(--danger)">${below75}</div>
+        <div style="font-size:.72rem;color:var(--muted)">At Risk</div>
+      </div>
+      <div style="text-align:center;background:var(--bg);border-radius:8px;padding:10px;">
+        <div style="font-size:1.4rem;font-weight:800;color:var(--info)">${avg}%</div>
+        <div style="font-size:.72rem;color:var(--muted)">Avg Att.</div>
+      </div>
+    </div>
+    ${below75 > 0 ? `
+      <div style="font-size:.78rem;font-weight:600;color:var(--danger);margin-bottom:6px;">⚠ Students below 75%:</div>
+      ${students.filter(s=>s.attendance<75).slice(0,3).map(s=>`
+        <div style="display:flex;justify-content:space-between;font-size:.8rem;padding:5px 0;border-bottom:1px solid var(--border);">
+          <span>${s.name}</span>
+          <span style="color:var(--danger);font-weight:700">${s.attendance}%</span>
+        </div>`).join('')}` : '<div style="color:var(--success);font-size:.82rem;">✅ All students above 75% attendance.</div>'}`;
+}
+
+function renderAttLog() {
+  const log = APP_DATA.getAttendanceLog();
+  const el = document.getElementById('att-log-list');
+  if (log.length === 0) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;padding:8px 0;">No attendance submitted yet.</div>';
+    return;
+  }
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>Date</th><th>Subject</th><th>Period</th><th>Present</th><th>Absent</th><th>Status</th></tr></thead>
+    <tbody>
+      ${log.slice(0,5).map(l=>`
+        <tr>
+          <td>${formatDate(l.date)}</td>
+          <td style="font-weight:600">${l.subject}</td>
+          <td>${l.period}</td>
+          <td style="color:var(--success);font-weight:700">${l.present ?? '—'}</td>
+          <td style="color:var(--danger);font-weight:700">${l.absent ?? '—'}</td>
+          <td><span class="pill ${l.locked?'pill-orange':'pill-green'}">${l.locked?'🔒 Locked':'Open'}</span></td>
+        </tr>`).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+async function loadAIInsight() {
+  const el = document.getElementById('ai-insight');
+  el.style.fontStyle = 'normal';
+  el.textContent = '⏳ Analyzing with IBM watsonx…';
+  const students = APP_DATA.getStudents();
+  const col = APP_DATA.getCollegeInfo();
+  const data = students.length
+    ? { totalStudents: students.length, avgAttendance: Math.round(students.reduce((a,s)=>a+s.attendance,0)/students.length), atRisk: students.filter(s=>s.attendance<75).length, class: col.class, semester: col.semester }
+    : { message: 'No student data yet. Add students via Admin panel.' };
+  const insight = await WATSONX.analyzePerformance(data);
+  el.style.color = 'var(--text)';
+  el.textContent = insight;
+}
+</script>
+</body>
+</html>

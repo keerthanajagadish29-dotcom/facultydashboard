@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Admin Panel – Faculty Portal</title>
+<link rel="stylesheet" href="css/style.css"/>
+<style>
+  .admin-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;margin-bottom:24px; }
+  .admin-card { background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;cursor:pointer;transition:border-color .2s,transform .15s; }
+  .admin-card:hover { border-color:var(--primary);transform:translateY(-2px); }
+  .admin-card .icon { font-size:1.8rem;margin-bottom:10px; }
+  .admin-card h3 { font-size:.88rem;font-weight:700;color:var(--primary); }
+  .admin-card p  { font-size:.76rem;color:var(--muted);margin-top:4px; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div id="sidebar-placeholder"></div>
+  <div class="main-area">
+    <div id="header-placeholder"></div>
+    <main class="page-content">
+
+      <div class="page-header">
+        <div><h1>🛡 Admin Panel</h1><div class="subtitle" id="admin-subtitle">System Administration</div></div>
+        <span class="pill pill-red">Admin Access</span>
+      </div>
+
+      <div class="stat-grid" style="margin-bottom:24px;" id="admin-stats"></div>
+
+      <div class="admin-grid">
+        <div class="admin-card" onclick="showSection('faculty')"><div class="icon">👨‍🏫</div><h3>Manage Faculty</h3><p>Add, edit, assign subjects, view profiles</p></div>
+        <div class="admin-card" onclick="showSection('students')"><div class="icon">🎓</div><h3>Manage Students</h3><p>Enrol students, edit records, bulk import</p></div>
+        <div class="admin-card" onclick="showSection('subjects')"><div class="icon">📚</div><h3>Manage Subjects</h3><p>Add subjects, assign faculty, set credits</p></div>
+        <div class="admin-card" onclick="showSection('college')"><div class="icon">🏫</div><h3>College Info</h3><p>Set college name, class, semester details</p></div>
+        <div class="admin-card" onclick="showSection('unlock')"><div class="icon">🔓</div><h3>Unlock Attendance</h3><p>Approve attendance unlock requests</p></div>
+        <div class="admin-card" onclick="showSection('audit')"><div class="icon">📋</div><h3>Audit Log</h3><p>Track all system activities</p></div>
+        <div class="admin-card" onclick="showSection('backup')"><div class="icon">💾</div><h3>Backup & Restore</h3><p>Export or restore all portal data</p></div>
+        <div class="admin-card" onclick="window.location.href='settings.html'"><div class="icon">🤖</div><h3>watsonx Settings</h3><p>Configure IBM watsonx AI credentials</p></div>
+      </div>
+
+      <div id="admin-section"></div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/watsonx.js"></script>
+<script src="js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  initPage('admin', 'Admin Panel');
+  const col = APP_DATA.getCollegeInfo();
+  document.getElementById('admin-subtitle').textContent = `${col.name} · ${col.class || ''} · System Administration`;
+  buildStats();
+  showSection('college');
+});
+
+function buildStats() {
+  const faculty  = APP_DATA.getFaculty();
+  const students = APP_DATA.getStudents();
+  const subjects = APP_DATA.getSubjects();
+  const audit    = APP_DATA.getAuditLog();
+  document.getElementById('admin-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-icon blue">👨‍🏫</div><div><div class="stat-val">${faculty.length}</div><div class="stat-label">Faculty</div></div></div>
+    <div class="stat-card"><div class="stat-icon green">🎓</div><div><div class="stat-val">${students.length}</div><div class="stat-label">Students</div></div></div>
+    <div class="stat-card"><div class="stat-icon purple">📚</div><div><div class="stat-val">${subjects.length}</div><div class="stat-label">Subjects</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">📋</div><div><div class="stat-val">${audit.length}</div><div class="stat-label">Audit Entries</div></div></div>`;
+}
+
+function showSection(id) {
+  const el = document.getElementById('admin-section');
+  const map = { faculty: sectionFaculty, students: sectionStudents, subjects: sectionSubjects, college: sectionCollege, unlock: sectionUnlock, audit: sectionAudit, backup: sectionBackup };
+  if (map[id]) el.innerHTML = map[id]();
+}
+
+/* ── College Info ──────────────────────────────────────────── */
+function sectionCollege() {
+  const c = APP_DATA.getCollegeInfo();
+  return `
+    <div class="card">
+      <div class="card-title">🏫 College / Class Information</div>
+      <div class="alert alert-info">This information appears throughout the portal — in the sidebar, timetable header, and reports.</div>
+      <div class="form-row" style="max-width:700px;">
+        <div class="form-group"><label class="form-label">College / School Name</label>
+          <input type="text" id="c-name" class="form-control" value="${c.name}" placeholder="e.g. ABC College of Engineering"/></div>
+        <div class="form-group"><label class="form-label">Department</label>
+          <input type="text" id="c-dept" class="form-control" value="${c.dept}" placeholder="e.g. Dept. of Computer Science"/></div>
+      </div>
+      <div class="form-row" style="max-width:700px;">
+        <div class="form-group"><label class="form-label">Class / Section</label>
+          <input type="text" id="c-class" class="form-control" value="${c.class}" placeholder="e.g. III B.Tech CSE Section A"/></div>
+        <div class="form-group"><label class="form-label">Semester</label>
+          <input type="text" id="c-sem" class="form-control" value="${c.semester}" placeholder="e.g. Semester 5 (ODD)"/></div>
+      </div>
+      <div class="form-group" style="max-width:340px;">
+        <label class="form-label">Academic Year</label>
+        <input type="text" id="c-ay" class="form-control" value="${c.academicYear}" placeholder="e.g. 2025-26"/>
+      </div>
+      <button onclick="saveCollegeInfo()" class="btn btn-primary">💾 Save College Info</button>
+      <div id="col-saved" style="display:none;margin-top:10px;" class="alert alert-success">✅ Saved! Reload the page to see changes in the sidebar.</div>
+    </div>`;
+}
+
+function saveCollegeInfo() {
+  APP_DATA.saveCollegeInfo({
+    name: document.getElementById('c-name').value.trim(),
+    dept: document.getElementById('c-dept').value.trim(),
+    class: document.getElementById('c-class').value.trim(),
+    semester: document.getElementById('c-sem').value.trim(),
+    academicYear: document.getElementById('c-ay').value.trim(),
+  });
+  APP_DATA.appendAudit('College info updated', 'Admin', 'College info changed');
+  document.getElementById('col-saved').style.display = 'block';
+}
+
+/* ── Faculty ──────────────────────────────────────────────── */
+function sectionFaculty() {
+  const list = APP_DATA.getFaculty();
+  return `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <div class="card-title" style="margin-bottom:0">👨‍🏫 Faculty List</div>
+        <button onclick="addFacultyPrompt()" class="btn btn-primary btn-sm">+ Add Faculty</button>
+      </div>
+      ${list.length === 0 ? '<div style="color:var(--muted);text-align:center;padding:20px;">No faculty added. Click + Add Faculty.</div>' : `
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Department</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody>
+            ${list.map(f => `
+              <tr>
+                <td><span class="pill pill-gray">${f.id}</span></td>
+                <td style="font-weight:600">${f.name}</td>
+                <td style="font-size:.78rem">${f.email}</td>
+                <td>${f.dept}</td>
+                <td><span class="pill ${f.status==='active'?'pill-green':'pill-red'}">${f.status}</span></td>
+                <td><button onclick="deleteFaculty('${f.id}')" class="btn btn-icon btn-sm">🗑</button></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`}
+    </div>`;
+}
+
+function addFacultyPrompt() {
+  const name  = prompt('Faculty full name:'); if (!name) return;
+  const email = prompt('Faculty email:') || '';
+  const dept  = prompt('Department:') || '';
+  const list  = APP_DATA.getFaculty();
+  list.push({ id: 'F' + String(list.length+1).padStart(3,'0'), name, email, dept, designation: 'Asst. Professor', subjects: [], phone: '', joined: new Date().toISOString().split('T')[0], status: 'active' });
+  APP_DATA.saveFaculty(list);
+  APP_DATA.appendAudit('Faculty added', 'Admin', name);
+  buildStats();
+  showSection('faculty');
+}
+
+function deleteFaculty(id) {
+  if (!confirm('Delete this faculty member?')) return;
+  APP_DATA.saveFaculty(APP_DATA.getFaculty().filter(f => f.id !== id));
+  buildStats(); showSection('faculty');
+}
+
+/* ── Students ─────────────────────────────────────────────── */
+function sectionStudents() {
+  const list = APP_DATA.getStudents();
+  return `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <div class="card-title" style="margin-bottom:0">🎓 Student List</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="importStudents()" class="btn btn-outline btn-sm">📥 Bulk Import (CSV)</button>
+          <button onclick="addStudentPrompt()" class="btn btn-primary btn-sm">+ Add Student</button>
+        </div>
+      </div>
+      ${list.length === 0 ? `
+        <div style="text-align:center;padding:30px;color:var(--muted);">
+          <div style="font-size:2rem;margin-bottom:10px;">🎓</div>
+          <div style="font-weight:600;margin-bottom:6px;">No students yet</div>
+          <div style="font-size:.82rem;margin-bottom:14px;">Add students one by one or import via CSV.</div>
+          <button onclick="addStudentPrompt()" class="btn btn-primary">+ Add First Student</button>
+        </div>` : `
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Roll No.</th><th>Name</th><th>Email</th><th>Attendance%</th><th>Action</th></tr></thead>
+          <tbody>
+            ${list.map((s,i) => `
+              <tr>
+                <td>${i+1}</td>
+                <td style="font-family:monospace;font-size:.78rem">${s.usn||s.rollNo||''}</td>
+                <td style="font-weight:600">${s.name}</td>
+                <td style="font-size:.76rem">${s.email||''}</td>
+                <td><span style="font-weight:700;color:${(s.attendance||0)>=75?'var(--success)':'var(--danger)'}">${s.attendance||0}%</span></td>
+                <td><button onclick="deleteStudent('${s.usn||s.rollNo}')" class="btn btn-icon btn-sm">🗑</button></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`}
+    </div>`;
+}
+
+function addStudentPrompt() {
+  const name  = prompt('Student full name:'); if (!name) return;
+  const roll  = prompt('Roll No. / USN:') || ('S' + String(APP_DATA.getStudents().length+1).padStart(3,'0'));
+  const email = prompt('Email (optional):') || '';
+  const list  = APP_DATA.getStudents();
+  list.push({ usn: roll, rollNo: roll, name, email, section: '', sem: '', attendance: 0, internal1: 0, internal2: 0, assignment: 0 });
+  APP_DATA.saveStudents(list);
+  APP_DATA.appendAudit('Student added', 'Admin', name);
+  buildStats(); showSection('students');
+}
+
+function deleteStudent(roll) {
+  if (!confirm('Delete this student?')) return;
+  APP_DATA.saveStudents(APP_DATA.getStudents().filter(s => (s.usn||s.rollNo) !== roll));
+  buildStats(); showSection('students');
+}
+
+function importStudents() {
+  alert('CSV Import: Create a CSV with columns: name, rollNo, email, attendance\nThen paste data — full backend integration needed for production.');
+}
+
+/* ── Subjects ─────────────────────────────────────────────── */
+function sectionSubjects() {
+  const list = APP_DATA.getSubjects();
+  return `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+        <div class="card-title" style="margin-bottom:0">📚 Subjects</div>
+        <button onclick="addSubjectPrompt()" class="btn btn-primary btn-sm">+ Add Subject</button>
+      </div>
+      ${list.length === 0 ? `
+        <div style="text-align:center;padding:30px;color:var(--muted);">
+          <div style="font-size:2rem;margin-bottom:10px;">📚</div>
+          <div style="font-weight:600;margin-bottom:6px;">No subjects yet</div>
+          <button onclick="addSubjectPrompt()" class="btn btn-primary">+ Add First Subject</button>
+        </div>` : `
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Code</th><th>Subject Name</th><th>Type</th><th>Credits</th><th>Faculty</th><th>Action</th></tr></thead>
+          <tbody>
+            ${list.map(s => `
+              <tr>
+                <td><span class="pill pill-blue">${s.code||'—'}</span></td>
+                <td style="font-weight:600">${s.name}</td>
+                <td><span class="pill ${s.type==='Lab'?'pill-orange':'pill-blue'}">${s.type||'Theory'}</span></td>
+                <td style="text-align:center">${s.credits||0}</td>
+                <td style="font-size:.78rem">${s.faculty||'—'}</td>
+                <td><button onclick="deleteSubject('${s.name}')" class="btn btn-icon btn-sm">🗑</button></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`}
+    </div>`;
+}
+
+function addSubjectPrompt() {
+  const name    = prompt('Subject name:'); if (!name) return;
+  const code    = prompt('Subject code (e.g. CS501):') || '';
+  const type    = prompt('Type — Theory / Lab / Practical:') || 'Theory';
+  const credits = parseInt(prompt('Credits:') || '3');
+  const faculty = prompt('Assigned faculty name:') || '';
+  const list    = APP_DATA.getSubjects();
+  list.push({ name, code, type, credits, faculty, sem: '' });
+  APP_DATA.saveSubjects(list);
+  APP_DATA.appendAudit('Subject added', 'Admin', name);
+  buildStats(); showSection('subjects');
+}
+
+function deleteSubject(name) {
+  if (!confirm('Delete subject "' + name + '"?')) return;
+  APP_DATA.saveSubjects(APP_DATA.getSubjects().filter(s => s.name !== name));
+  buildStats(); showSection('subjects');
+}
+
+/* ── Unlock ───────────────────────────────────────────────── */
+function sectionUnlock() {
+  return `
+    <div class="card">
+      <div class="card-title">🔓 Attendance Unlock Requests</div>
+      <div id="unlock-list">
+        <div style="color:var(--muted);text-align:center;padding:20px;">No pending unlock requests.</div>
+      </div>
+    </div>`;
+}
+
+/* ── Audit ────────────────────────────────────────────────── */
+function sectionAudit() {
+  const log = APP_DATA.getAuditLog();
+  return `
+    <div class="card">
+      <div class="card-title">📋 System Audit Log</div>
+      ${log.length === 0 ? '<div style="color:var(--muted);text-align:center;padding:20px;">No audit entries yet.</div>' : `
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Action</th><th>Module</th><th>User</th><th>Detail</th><th>Time</th></tr></thead>
+          <tbody>
+            ${log.map(l=>`
+              <tr>
+                <td style="font-weight:600">${l.action}</td>
+                <td><span class="pill pill-blue">${l.module}</span></td>
+                <td>${l.user}</td>
+                <td style="font-size:.76rem">${l.detail}</td>
+                <td style="font-size:.72rem;color:var(--muted)">${l.ts}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`}
+      <div style="margin-top:12px;display:flex;gap:8px;">
+        <button onclick="clearAudit()" class="btn btn-sm" style="background:#fee2e2;color:var(--danger);border:none;">🗑 Clear Log</button>
+      </div>
+    </div>`;
+}
+
+function clearAudit() {
+  if (!confirm('Clear audit log?')) return;
+  localStorage.removeItem('portal_audit');
+  showSection('audit');
+}
+
+/* ── Backup ───────────────────────────────────────────────── */
+function sectionBackup() {
+  return `
+    <div class="card">
+      <div class="card-title">💾 Backup & Restore</div>
+      <div class="grid-2">
+        <div style="background:var(--bg);border-radius:10px;padding:20px;">
+          <h4 style="font-size:.9rem;font-weight:700;margin-bottom:8px;color:var(--primary)">📤 Export All Data</h4>
+          <p style="font-size:.8rem;color:var(--muted);margin-bottom:14px;">Download all portal data as a JSON file (timetable, students, subjects, attendance, audit).</p>
+          <button onclick="exportAll()" class="btn btn-primary">💾 Download Backup</button>
+        </div>
+        <div style="background:var(--bg);border-radius:10px;padding:20px;">
+          <h4 style="font-size:.9rem;font-weight:700;margin-bottom:8px;color:var(--primary)">📥 Import Data</h4>
+          <p style="font-size:.8rem;color:var(--muted);margin-bottom:14px;">Restore from a previously exported JSON backup file.</p>
+          <input type="file" accept=".json" id="import-file" class="form-control" style="margin-bottom:10px;"/>
+          <button onclick="importAll()" class="btn btn-danger">🔄 Restore</button>
+        </div>
+      </div>
+      <div style="margin-top:14px;">
+        <button onclick="clearAllData()" class="btn btn-sm" style="background:#fee2e2;color:var(--danger);border:none;">⚠ Clear ALL Portal Data</button>
+      </div>
+    </div>`;
+}
+
+function exportAll() {
+  const data = {
+    college: APP_DATA.getCollegeInfo(),
+    timetable: APP_DATA.getTimetable(),
+    faculty: APP_DATA.getFaculty(),
+    students: APP_DATA.getStudents(),
+    subjects: APP_DATA.getSubjects(),
+    announcements: APP_DATA.getAnnouncements(),
+    attendanceLog: APP_DATA.getAttendanceLog(),
+    audit: APP_DATA.getAuditLog(),
+    exportedAt: new Date().toISOString(),
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'faculty_portal_backup_' + new Date().toISOString().split('T')[0] + '.json';
+  a.click();
+}
+
+function importAll() {
+  const file = document.getElementById('import-file').files[0];
+  if (!file) { alert('Select a backup file first.'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.college)       APP_DATA.saveCollegeInfo(data.college);
+      if (data.timetable)     APP_DATA.saveTimetable(data.timetable);
+      if (data.faculty)       APP_DATA.saveFaculty(data.faculty);
+      if (data.students)      APP_DATA.saveStudents(data.students);
+      if (data.subjects)      APP_DATA.saveSubjects(data.subjects);
+      if (data.announcements) APP_DATA.saveAnnouncements(data.announcements);
+      alert('✅ Data imported successfully! Reloading…');
+      location.reload();
+    } catch(err) {
+      alert('❌ Invalid backup file. Please select a valid JSON backup.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function clearAllData() {
+  if (!confirm('⚠ This will clear ALL portal data (students, timetable, subjects, attendance). Are you sure?')) return;
+  ['portal_timetable','portal_college','portal_faculty','portal_students','portal_subjects','portal_att_log','portal_announcements','portal_audit'].forEach(k => localStorage.removeItem(k));
+  alert('All data cleared. Reloading…');
+  location.reload();
+}
+</script>
+</body>
+</html>

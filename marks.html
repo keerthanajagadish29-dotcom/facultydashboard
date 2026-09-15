@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Internal Marks – Faculty Portal</title>
+<link rel="stylesheet" href="css/style.css"/>
+<style>
+  .marks-input { width: 60px; padding: 5px 8px; border: 1.5px solid var(--border); border-radius: 6px; text-align: center; font-size: .84rem; font-weight: 700; }
+  .marks-input:focus { border-color: var(--primary-light); outline: none; }
+  .marks-input.over-max { border-color: var(--danger); background: #fee2e2; }
+  .total-cell { font-weight: 800; font-size: .95rem; }
+  .locked-badge { background: #fef3c7; border: 1px solid #fcd34d; border-radius: 20px; padding: 2px 8px; font-size: .7rem; color: #92400e; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div id="sidebar-placeholder"></div>
+  <div class="main-area">
+    <div id="header-placeholder"></div>
+    <main class="page-content">
+
+      <div class="page-header">
+        <div>
+          <h1>Internal Marks Management</h1>
+          <div class="subtitle">Upload, edit and finalize internal marks · Use Admin to add students and subjects first</div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button onclick="exportMarks('excel')" class="btn btn-success btn-sm">📊 Export Excel</button>
+          <button onclick="exportMarks('pdf')" class="btn btn-primary btn-sm">📄 Export PDF</button>
+          <button onclick="lockMarks()" class="btn btn-sm" style="background:#ef4444;color:#fff;">🔒 Final Submit</button>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('upload', this)">Upload Marks</div>
+        <div class="tab" onclick="switchTab('view', this)">View All Marks</div>
+        <div class="tab" onclick="switchTab('lab', this)">Lab & Practical</div>
+        <div class="tab" onclick="switchTab('analysis', this)">Analysis</div>
+      </div>
+
+      <!-- Upload Marks -->
+      <div class="tab-panel active" id="tab-upload">
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">⚙️ Configuration</div>
+          <div class="form-row-3">
+            <div class="form-group">
+              <label class="form-label">Subject</label>
+              <select class="form-control" id="marks-subject" onchange="loadMarksTable()">
+                <option>Web Programming</option>
+                <option>Software Engineering</option>
+                <option>Cryptography &amp; Network Security</option>
+                <option>Data Analytics</option>
+                <option>Quantitative Techniques (QT)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Exam Type</label>
+              <select class="form-control" id="marks-type" onchange="loadMarksTable()">
+                <option value="internal1">Internal Exam 1</option>
+                <option value="internal2">Internal Exam 2</option>
+                <option value="assignment">Assignment</option>
+                <option value="lab">Lab / Practical</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Max Marks</label>
+              <input type="number" class="form-control" id="max-marks" value="20" min="1" max="100"/>
+            </div>
+          </div>
+          <div class="alert alert-info">
+            📌 <strong>Deadline:</strong> Internal 1 marks submission – Nov 25, 2026. All marks are locked after deadline. Edit before final submission.
+          </div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+            <div class="card-title" style="margin-bottom:0">📝 Enter Marks — <span id="marks-context" style="font-weight:400;color:var(--muted)">Web Programming · Internal 1</span></div>
+            <div style="display:flex;gap:10px;">
+              <button onclick="autofillRandom()" class="btn btn-outline btn-sm">🎲 Demo Fill</button>
+              <button onclick="clearAllMarks()" class="btn btn-sm" style="background:#f97316;color:#fff;">🗑 Clear All</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>USN</th>
+                  <th>Student Name</th>
+                  <th style="text-align:center">Marks <small id="max-label">/20</small></th>
+                  <th>Grade</th>
+                  <th style="text-align:center">Absent</th>
+                  <th>Remark</th>
+                </tr>
+              </thead>
+              <tbody id="marks-tbody"></tbody>
+              <tfoot>
+                <tr style="background:var(--bg);font-weight:700;">
+                  <td colspan="3" style="text-align:right;padding:10px 14px;">Class Average</td>
+                  <td style="text-align:center;padding:10px 14px;" id="class-avg">—</td>
+                  <td colspan="3"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;">
+            <button onclick="saveMarks(false)" class="btn btn-success">💾 Save Marks</button>
+            <button onclick="saveMarks(true)" class="btn btn-primary">📤 Submit Final</button>
+            <button onclick="loadAIMarksAnalysis()" class="btn btn-sm" style="background:#1a3c6e;color:#fff;">🤖 AI Analysis</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- View All Marks -->
+      <div class="tab-panel" id="tab-view">
+        <div class="card">
+          <div class="card-title">📊 Consolidated Marks Sheet</div>
+          <div class="form-group" style="max-width:300px;margin-bottom:16px;">
+            <label class="form-label">Select Subject</label>
+            <select class="form-control" id="view-subject" onchange="buildConsolidated()">
+              <option>Web Programming</option>
+              <option>Software Engineering</option>
+              <option>Cryptography &amp; Network Security</option>
+              <option>Data Analytics</option>
+            </select>
+          </div>
+          <div id="consolidated-table"></div>
+        </div>
+      </div>
+
+      <!-- Lab & Practical -->
+      <div class="tab-panel" id="tab-lab">
+        <div class="card">
+          <div class="card-title">🔬 Lab / Practical Marks</div>
+          <div class="form-row" style="max-width:500px;margin-bottom:16px;">
+            <div class="form-group">
+              <label class="form-label">Lab Subject</label>
+              <select class="form-control">
+                <option>Web Programming Lab</option>
+                <option>Data Analytics Lab</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Experiment / Cycle</label>
+              <select class="form-control">
+                <option>Cycle 1</option>
+                <option>Cycle 2</option>
+                <option>Viva</option>
+                <option>Record</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>#</th><th>USN</th><th>Student Name</th><th>Reg / Conduct<br><small>/5</small></th><th>Viva<br><small>/5</small></th><th>Record<br><small>/5</small></th><th>Practical<br><small>/10</small></th><th>Total<br><small>/25</small></th></tr>
+              </thead>
+              <tbody id="lab-tbody"></tbody>
+            </table>
+          </div>
+          <div style="margin-top:14px;display:flex;gap:10px;">
+            <button onclick="saveLabMarks()" class="btn btn-success">💾 Save Lab Marks</button>
+            <button onclick="exportMarks('excel')" class="btn btn-primary btn-sm">📊 Export Excel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Analysis Tab -->
+      <div class="tab-panel" id="tab-analysis">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">📊 Marks Distribution</div>
+            <div id="marks-distribution"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">🤖 watsonx AI Analysis</div>
+            <div id="ai-marks-analysis" style="font-size:.83rem;color:var(--muted);font-style:italic;">Click "AI Analysis" to get insights.</div>
+            <div style="margin-top:12px;">
+              <button onclick="loadAIMarksAnalysis()" class="btn btn-primary btn-sm">🔍 Analyze with AI</button>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px;">
+          <div class="card-title">📈 Subject-wise Performance</div>
+          <div id="subject-performance"></div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/watsonx.js"></script>
+<script src="js/app.js"></script>
+<script>
+let marksData = {}; // { usn: { marks, absent, remark } }
+
+document.addEventListener('DOMContentLoaded', () => {
+  initPage('marks', 'Internal Marks Management');
+  loadMarksTable();
+  buildConsolidated();
+  buildLabTable();
+  buildAnalysis();
+});
+
+function loadMarksTable() {
+  const subject = document.getElementById('marks-subject').value;
+  const type = document.getElementById('marks-type').value;
+  const maxM = parseInt(document.getElementById('max-marks').value) || 20;
+  document.getElementById('marks-context').textContent = `${subject} · ${type.replace('internal1','Internal 1').replace('internal2','Internal 2').replace('assignment','Assignment').replace('lab','Lab')}`;
+  document.getElementById('max-label').textContent = `/${maxM}`;
+
+  const savedKey = `marks_${subject}_${type}`;
+  const saved = JSON.parse(localStorage.getItem(savedKey) || '{}');
+
+  const tbody = document.getElementById('marks-tbody');
+  const students = APP_DATA.getStudents();
+  if (students.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px;">No students added yet. <a href="admin.html">Add via Admin →</a></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = students.map((s, i) => {
+    const seed = { internal1: s.internal1||0, internal2: s.internal2||0, assignment: s.assignment||0, lab: Math.round((s.assignment||0) * 2.5) };
+    const defVal = saved[s.usn]?.marks ?? (seed[type] || '');
+    const absent = saved[s.usn]?.absent || false;
+    const remark = saved[s.usn]?.remark || '';
+    const grade = defVal !== '' ? calcGrade(defVal, maxM) : '—';
+    return `
+      <tr id="mrow-${s.usn}">
+        <td>${i+1}</td>
+        <td style="font-family:monospace;font-size:.78rem">${s.usn}</td>
+        <td style="font-weight:600">${s.name}</td>
+        <td style="text-align:center">
+          <input type="number" class="marks-input" id="m-${s.usn}" value="${defVal}" min="0" max="${maxM}" ${absent?'disabled':''} oninput="onMarksChange('${s.usn}',${maxM})"/>
+        </td>
+        <td id="grade-${s.usn}" style="font-weight:700;color:${getGradeColor(grade)}">${grade}</td>
+        <td style="text-align:center"><input type="checkbox" id="absent-${s.usn}" ${absent?'checked':''} onchange="toggleAbsent('${s.usn}')"/></td>
+        <td><input type="text" class="form-control" style="padding:5px 8px;font-size:.76rem;" id="rem-${s.usn}" value="${remark}" placeholder="Remark…"/></td>
+      </tr>`;
+  }).join('');
+  updateClassAvg(maxM);
+}
+
+function calcGrade(marks, max) {
+  const pct = (marks/max)*100;
+  if (pct >= 90) return 'O';
+  if (pct >= 80) return 'A+';
+  if (pct >= 70) return 'A';
+  if (pct >= 60) return 'B+';
+  if (pct >= 50) return 'B';
+  if (pct >= 40) return 'C';
+  return 'F';
+}
+function getGradeColor(g) { const m = {O:'#10b981','A+':'#10b981',A:'#3b82f6','B+':'#3b82f6',B:'#f97316',C:'#f59e0b',F:'#ef4444','—':'#64748b'}; return m[g]||'#64748b'; }
+
+function onMarksChange(usn, max) {
+  const inp = document.getElementById('m-' + usn);
+  const v = parseFloat(inp.value);
+  inp.classList.toggle('over-max', v > max);
+  if (v > max) inp.value = max;
+  const g = calcGrade(v, max);
+  const gEl = document.getElementById('grade-' + usn);
+  gEl.textContent = g; gEl.style.color = getGradeColor(g);
+  updateClassAvg(max);
+}
+
+function toggleAbsent(usn) {
+  const chk = document.getElementById('absent-' + usn);
+  const inp = document.getElementById('m-' + usn);
+  inp.disabled = chk.checked;
+  if (chk.checked) { inp.value = ''; document.getElementById('grade-'+usn).textContent = 'AB'; }
+}
+
+function updateClassAvg(max) {
+  const maxM = parseInt(document.getElementById('max-marks').value) || 20;
+  const students2 = APP_DATA.getStudents();
+  const vals = students2.map(s => {
+    const v = parseFloat(document.getElementById('m-' + s.usn)?.value);
+    return isNaN(v) ? null : v;
+  }).filter(v => v !== null);
+  const avg = vals.length ? (vals.reduce((a,b) => a+b, 0)/vals.length).toFixed(2) : '—';
+  document.getElementById('class-avg').textContent = avg + (avg !== '—' ? `/${max}` : '');
+}
+
+function autofillRandom() {
+  const max = parseInt(document.getElementById('max-marks').value) || 20;
+  APP_DATA.getStudents().forEach(s => {
+    const inp = document.getElementById('m-' + s.usn);
+    if (inp && !inp.disabled) {
+      const type = document.getElementById('marks-type').value;
+      const seed = { internal1: s.internal1, internal2: s.internal2, assignment: s.assignment };
+      inp.value = seed[type] || Math.floor(Math.random() * (max*0.4) + max*0.5);
+      onMarksChange(s.usn, max);
+    }
+  });
+}
+
+function clearAllMarks() {
+  if (!confirm('Clear all entered marks?')) return;
+  APP_DATA.getStudents().forEach(s => {
+    const inp = document.getElementById('m-' + s.usn);
+    if (inp) { inp.value = ''; onMarksChange(s.usn, parseInt(document.getElementById('max-marks').value)||20); }
+  });
+}
+
+function saveMarks(final) {
+  const subject = document.getElementById('marks-subject').value;
+  const type = document.getElementById('marks-type').value;
+  const max = parseInt(document.getElementById('max-marks').value) || 20;
+  const data = {};
+  APP_DATA.getStudents().forEach(s => {
+    data[s.usn] = {
+      marks: document.getElementById('m-'+s.usn)?.value || '',
+      absent: document.getElementById('absent-'+s.usn)?.checked || false,
+      remark: document.getElementById('rem-'+s.usn)?.value || '',
+    };
+  });
+  localStorage.setItem(`marks_${subject}_${type}`, JSON.stringify(data));
+  alert(final ? `✅ Marks submitted finally for ${subject} – ${type}!` : `💾 Marks saved for ${subject} – ${type}!`);
+}
+
+function buildConsolidated() {
+  const subj = document.getElementById('view-subject').value;
+  const el = document.getElementById('consolidated-table');
+  el.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>USN</th><th>Name</th>
+            <th>Int. 1<br>/20</th><th>Int. 2<br>/20</th><th>Assignment<br>/10</th>
+            <th>Total<br>/50</th><th>Avg%</th><th>Grade</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${APP_DATA.getStudents().map((s,i) => {
+            const total = (s.internal1||0) + (s.internal2||0) + (s.assignment||0);
+            const pct = Math.round(total/50*100);
+            const grade = calcGrade(total,50);
+            return `
+              <tr>
+                <td>${i+1}</td>
+                <td style="font-family:monospace;font-size:.78rem">${s.usn}</td>
+                <td style="font-weight:600">${s.name}</td>
+                <td style="text-align:center">${s.internal1}</td>
+                <td style="text-align:center">${s.internal2}</td>
+                <td style="text-align:center">${s.assignment}</td>
+                <td style="text-align:center;font-weight:800">${total}</td>
+                <td style="text-align:center">${pct}%</td>
+                <td style="text-align:center;font-weight:700;color:${getGradeColor(grade)}">${grade}</td>
+                <td><span class="pill ${total>=25?'pill-green':'pill-red'}">${total>=25?'Pass':'Fail'}</span></td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function buildLabTable() {
+  const tbody = document.getElementById('lab-tbody');
+  const students4 = APP_DATA.getStudents();
+  tbody.innerHTML = students4.map((s,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td style="font-family:monospace;font-size:.78rem">${s.usn}</td>
+      <td style="font-weight:600">${s.name}</td>
+      <td><input class="marks-input" type="number" value="${Math.floor(Math.random()*2)+3}" min="0" max="5" id="lab1-${s.usn}" oninput="calcLabTotal('${s.usn}')"/></td>
+      <td><input class="marks-input" type="number" value="${Math.floor(Math.random()*2)+3}" min="0" max="5" id="lab2-${s.usn}" oninput="calcLabTotal('${s.usn}')"/></td>
+      <td><input class="marks-input" type="number" value="${Math.floor(Math.random()*2)+3}" min="0" max="5" id="lab3-${s.usn}" oninput="calcLabTotal('${s.usn}')"/></td>
+      <td><input class="marks-input" type="number" value="${Math.floor(Math.random()*3)+7}" min="0" max="10" id="lab4-${s.usn}" oninput="calcLabTotal('${s.usn}')"/></td>
+      <td style="font-weight:800" id="labtotal-${s.usn}"></td>
+    </tr>`).join('');
+  APP_DATA.getStudents().forEach(s => calcLabTotal(s.usn||s.rollNo));
+}
+
+function calcLabTotal(usn) {
+  const v1 = parseInt(document.getElementById('lab1-'+usn)?.value||0);
+  const v2 = parseInt(document.getElementById('lab2-'+usn)?.value||0);
+  const v3 = parseInt(document.getElementById('lab3-'+usn)?.value||0);
+  const v4 = parseInt(document.getElementById('lab4-'+usn)?.value||0);
+  const el = document.getElementById('labtotal-'+usn);
+  if (el) el.textContent = v1+v2+v3+v4;
+}
+
+function buildAnalysis() {
+  const el = document.getElementById('marks-distribution');
+  const ranges = [{label:'90-100%',min:90,cls:'green'},{label:'75-89%',min:75,cls:'blue'},{label:'60-74%',min:60,cls:'orange'},{label:'Below 60%',min:0,cls:'red'}];
+  const maxM = 50;
+  el.innerHTML = ranges.map(r => {
+    const students = APP_DATA.getStudents();
+    const count = students.filter(s => {
+      const total = (s.internal1||0)+(s.internal2||0)+(s.assignment||0);
+      const pct = total/maxM*100;
+      return pct >= r.min && (r.min === 0 || pct >= r.min);
+    }).length;
+    const total_students = students.length || 1;
+    return `
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:4px;">
+          <span>${r.label}</span>
+          <span style="font-weight:700">${count} students</span>
+        </div>
+        <div class="progress-bar-wrap"><div class="progress-bar ${r.cls}" style="width:${(count/total_students)*100}%"></div></div>
+      </div>`;
+  }).join('');
+
+  const students = APP_DATA.getStudents();
+  const subjects = APP_DATA.getSubjects();
+  const subjEl = document.getElementById('subject-performance');
+  if (!students.length || !subjects.length) {
+    subjEl.innerHTML = '<p style="color:var(--muted);font-size:.82rem">No student or subject data yet.</p>';
+    return;
+  }
+  subjEl.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Subject</th><th>Code</th><th>Avg Int. 1</th><th>Avg Int. 2</th><th>Avg Assignment</th><th>Overall Avg</th></tr></thead>
+        <tbody>
+          ${subjects.map(sub => {
+            const n = students.length;
+            const avg1 = (students.reduce((a,s)=>a+(s.internal1||0),0)/n).toFixed(1);
+            const avg2 = (students.reduce((a,s)=>a+(s.internal2||0),0)/n).toFixed(1);
+            const avga = (students.reduce((a,s)=>a+(s.assignment||0),0)/n).toFixed(1);
+            const overall = ((parseFloat(avg1)+parseFloat(avg2)+parseFloat(avga))/50*100).toFixed(1);
+            return `<tr><td style="font-weight:600">${sub.name}</td><td>${sub.code||'—'}</td><td>${avg1}/20</td><td>${avg2}/20</td><td>${avga}/10</td><td><strong>${overall}%</strong></td></tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function saveLabMarks() { alert('Lab marks saved successfully!'); }
+function lockMarks() { if (confirm('Final submit all marks? This cannot be undone.')) alert('✅ Marks locked and submitted to examination cell.'); }
+function exportMarks(type) { alert(`Exporting marks as ${type.toUpperCase()}…`); }
+async function loadAIMarksAnalysis() {
+  const el = document.getElementById('ai-marks-analysis');
+  el.textContent = '⏳ Analyzing with IBM watsonx…';
+  el.style.fontStyle = 'normal';
+  const res = await WATSONX.analyzePerformance({ students: APP_DATA.getStudents().map(s=>({name:s.name,int1:s.internal1||0,int2:s.internal2||0,assignment:s.assignment||0})) });
+  el.textContent = res;
+  switchTab('analysis', document.querySelectorAll('.tab')[3]);
+}
+function switchTab(id, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  if (el) el.classList.add('active'); else document.querySelector(`.tab:nth-child(${['upload','view','lab','analysis'].indexOf(id)+1})`).classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+}
+</script>
+</body>
+</html>

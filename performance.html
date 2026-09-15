@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Student Performance – Faculty Portal</title>
+<link rel="stylesheet" href="css/style.css"/>
+<style>
+  .perf-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .radar-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .radar-label { min-width: 110px; font-size: .78rem; color: var(--muted); }
+  .radar-pct { font-size: .78rem; font-weight: 700; min-width: 40px; text-align: right; }
+  .student-row { cursor: pointer; transition: background .15s; }
+  .student-row:hover { background: #f0f9ff; }
+  .student-row.selected { background: #eff6ff; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div id="sidebar-placeholder"></div>
+  <div class="main-area">
+    <div id="header-placeholder"></div>
+    <main class="page-content">
+
+      <div class="page-header">
+        <div>
+          <h1>Student Performance Reports</h1>
+          <div class="subtitle">Attendance · Internal Marks · Assignment Scores · Subject-wise Analysis · AI Insights</div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button onclick="exportReport('pdf')" class="btn btn-primary btn-sm">📄 Export PDF</button>
+          <button onclick="exportReport('excel')" class="btn btn-success btn-sm">📊 Export Excel</button>
+          <button onclick="loadAIPerformance()" class="btn btn-sm" style="background:#1a3c6e;color:#fff;">🤖 AI Analysis</button>
+        </div>
+      </div>
+
+      <!-- Class Summary -->
+      <div class="stat-grid" style="margin-bottom:20px;">
+        <div class="stat-card"><div class="stat-icon green">🎓</div><div><div class="stat-val">15</div><div class="stat-label">Total Students</div></div></div>
+        <div class="stat-card"><div class="stat-icon blue">📊</div><div><div class="stat-val" id="class-avg-marks">—</div><div class="stat-label">Avg Internal Marks</div></div></div>
+        <div class="stat-card"><div class="stat-icon teal">✅</div><div><div class="stat-val" id="class-avg-att">—</div><div class="stat-label">Avg Attendance</div></div></div>
+        <div class="stat-card"><div class="stat-icon red">⚠️</div><div><div class="stat-val" id="at-risk-count">—</div><div class="stat-label">At-Risk Students</div></div></div>
+        <div class="stat-card"><div class="stat-icon purple">🏆</div><div><div class="stat-val" id="top-scorer">—</div><div class="stat-label">Top Scorer</div></div></div>
+        <div class="stat-card"><div class="stat-icon orange">📝</div><div><div class="stat-val" id="pass-rate">—</div><div class="stat-label">Pass Rate</div></div></div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('overview', this)">Class Overview</div>
+        <div class="tab" onclick="switchTab('individual', this)">Individual Report</div>
+        <div class="tab" onclick="switchTab('subject', this)">Subject Analysis</div>
+        <div class="tab" onclick="switchTab('ai', this)">AI Insights</div>
+      </div>
+
+      <!-- Class Overview -->
+      <div class="tab-panel active" id="tab-overview">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+            <div class="card-title" style="margin-bottom:0">👥 All Students — V BCA Section A</div>
+            <div style="display:flex;gap:10px;">
+              <input type="text" id="perf-search" class="form-control" placeholder="🔍 Search…" style="width:160px;" oninput="filterPerf()"/>
+              <select class="form-control" style="width:160px;" id="sort-by" onchange="sortStudents()">
+                <option value="name">Sort: Name</option>
+                <option value="attendance">Sort: Attendance</option>
+                <option value="marks">Sort: Marks</option>
+                <option value="risk">Sort: At Risk</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th><th>USN</th><th>Student Name</th>
+                  <th>Attendance</th><th>Int. 1<br>/20</th><th>Int. 2<br>/20</th>
+                  <th>Assignment<br>/10</th><th>Total<br>/50</th><th>Grade</th><th>Risk Level</th><th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="perf-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Individual Report -->
+      <div class="tab-panel" id="tab-individual">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">🔍 Select Student</div>
+            <div class="form-group">
+              <select class="form-control" id="student-select" onchange="loadIndividual()">
+                <option value="">— Select Student —</option>
+              </select>
+            </div>
+            <div id="individual-report"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">📊 Performance Profile</div>
+            <div id="performance-profile"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Subject Analysis -->
+      <div class="tab-panel" id="tab-subject">
+        <div class="card">
+          <div class="card-title">📚 Subject-wise Performance Analysis</div>
+          <div id="subject-analysis"></div>
+        </div>
+      </div>
+
+      <!-- AI Insights -->
+      <div class="tab-panel" id="tab-ai">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">🤖 IBM watsonx AI — Class Analysis</div>
+            <div id="ai-class-analysis" style="font-size:.83rem;color:var(--muted);font-style:italic;">Click "Analyze" to get AI insights.</div>
+            <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
+              <button onclick="loadAIPerformance()" class="btn btn-primary btn-sm">🔍 Analyze Class</button>
+              <button onclick="loadAIAnomalies()" class="btn btn-sm" style="background:#f97316;color:#fff;">⚠ Detect Anomalies</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">🤖 Remedial Action Suggestions</div>
+            <div id="ai-remedial" style="font-size:.83rem;color:var(--muted);font-style:italic;">Select a student and click Suggest.</div>
+            <div style="margin-top:12px;">
+              <select class="form-control" id="remedial-student" style="margin-bottom:10px;">
+                <option>— Select At-Risk Student —</option>
+              </select>
+              <button onclick="loadRemedial()" class="btn btn-primary btn-sm">💡 Suggest Actions</button>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px;">
+          <div class="card-title">📊 Anomaly Detection Results</div>
+          <div id="anomaly-results" style="font-size:.83rem;color:var(--muted);">No anomalies detected yet. Click "Detect Anomalies" above.</div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/watsonx.js"></script>
+<script src="js/app.js"></script>
+<script>
+function calcGrade(pct) {
+  if (pct >= 90) return { g:'O', c:'#10b981' };
+  if (pct >= 80) return { g:'A+', c:'#10b981' };
+  if (pct >= 70) return { g:'A', c:'#3b82f6' };
+  if (pct >= 60) return { g:'B+', c:'#3b82f6' };
+  if (pct >= 50) return { g:'B', c:'#f97316' };
+  if (pct >= 40) return { g:'C', c:'#f59e0b' };
+  return { g:'F', c:'#ef4444' };
+}
+
+function riskLevel(s) {
+  let r = 0;
+  if (s.attendance < 65) r += 2;
+  else if (s.attendance < 75) r += 1;
+  const total = s.internal1 + s.internal2 + s.assignment;
+  if (total < 20) r += 2;
+  else if (total < 30) r += 1;
+  if (r >= 3) return { l:'High', cls:'pill-red' };
+  if (r >= 1) return { l:'Medium', cls:'pill-orange' };
+  return { l:'Low', cls:'pill-green' };
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initPage('performance', 'Student Performance');
+
+  const STUDENTS = APP_DATA.getStudents();
+  const avg = m => STUDENTS.length ? STUDENTS.reduce((a,s) => a+m(s), 0) / STUDENTS.length : 0;
+  const avgAtt   = Math.round(avg(s => s.attendance||0));
+  const avgMarks = (avg(s => (s.internal1||0)+(s.internal2||0)+(s.assignment||0))).toFixed(1);
+  const atRisk   = STUDENTS.filter(s => riskLevel(s).l !== 'Low').length;
+  const top      = STUDENTS.length ? STUDENTS.reduce((a,b) => ((a.internal1||0)+(a.internal2||0)+(a.assignment||0) > (b.internal1||0)+(b.internal2||0)+(b.assignment||0)) ? a : b) : null;
+  const passRate = STUDENTS.length ? Math.round(STUDENTS.filter(s => (s.internal1||0)+(s.internal2||0)+(s.assignment||0) >= 25).length / STUDENTS.length * 100) : 0;
+  document.getElementById('class-avg-marks').textContent = avgMarks + '/50';
+  document.getElementById('class-avg-att').textContent = avgAtt + '%';
+  document.getElementById('at-risk-count').textContent = atRisk;
+  document.getElementById('top-scorer').textContent = top ? top.name.split(' ')[0] : '—';
+  document.getElementById('pass-rate').textContent = passRate + '%';
+
+  buildOverview(STUDENTS);
+  buildStudentSelect(STUDENTS);
+  buildSubjectAnalysis(STUDENTS);
+
+  const rsel = document.getElementById('remedial-student');
+  STUDENTS.filter(s => riskLevel(s).l !== 'Low').forEach(s => {
+    const o = document.createElement('option');
+    o.value = s.usn || s.rollNo;
+    o.textContent = `${s.name} (${riskLevel(s).l} Risk)`;
+    rsel.appendChild(o);
+  });
+});
+
+function buildOverview(STUDENTS) {
+  if (!STUDENTS) STUDENTS = APP_DATA.getStudents();
+  const tbody = document.getElementById('perf-tbody');
+  tbody.innerHTML = STUDENTS.map((s, i) => {
+    const total = s.internal1 + s.internal2 + s.assignment;
+    const pct = Math.round(total/50*100);
+    const gr = calcGrade(pct);
+    const risk = riskLevel(s);
+    return `
+      <tr class="student-row" onclick="selectStudentFromTable('${s.usn}')">
+        <td>${i+1}</td>
+        <td style="font-family:monospace;font-size:.78rem">${s.usn}</td>
+        <td style="font-weight:600">${s.name}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div class="progress-bar-wrap" style="width:60px"><div class="progress-bar ${s.attendance>=75?'green':'red'}" style="width:${s.attendance}%"></div></div>
+            <span style="font-size:.78rem;font-weight:600;color:${s.attendance<75?'var(--danger)':'var(--success)'}">${s.attendance}%</span>
+          </div>
+        </td>
+        <td style="text-align:center">${s.internal1}</td>
+        <td style="text-align:center">${s.internal2}</td>
+        <td style="text-align:center">${s.assignment}</td>
+        <td style="text-align:center;font-weight:800">${total}</td>
+        <td style="text-align:center;font-weight:700;color:${gr.c}">${gr.g}</td>
+        <td><span class="pill ${risk.cls}">${risk.l}</span></td>
+        <td><button onclick="event.stopPropagation();selectStudentFromTable('${s.usn}')" class="btn btn-sm btn-outline">View</button></td>
+      </tr>`;
+  }).join('');
+}
+
+function buildStudentSelect(STUDENTS) {
+  if (!STUDENTS) STUDENTS = APP_DATA.getStudents();
+  const sel = document.getElementById('student-select');
+  STUDENTS.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s.usn;
+    o.textContent = `${s.name} (${s.usn})`;
+    sel.appendChild(o);
+  });
+}
+
+function selectStudentFromTable(usn) {
+  document.querySelectorAll('.student-row').forEach(r => r.classList.remove('selected'));
+  document.getElementById('student-select').value = usn;
+  loadIndividual();
+  switchTab('individual', document.querySelectorAll('.tab')[1]);
+}
+
+function loadIndividual() {
+  const usn = document.getElementById('student-select').value;
+  if (!usn) return;
+  const s = APP_DATA.getStudents().find(x => x.usn === usn || x.rollNo === usn);
+  if (!s) return;
+  const total = s.internal1 + s.internal2 + s.assignment;
+  const pct = Math.round(total/50*100);
+  const gr = calcGrade(pct);
+  const risk = riskLevel(s);
+
+  document.getElementById('individual-report').innerHTML = `
+    <div style="margin-top:14px;">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+        <div style="width:52px;height:52px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:800;">
+          ${s.name.split(' ').map(w=>w[0]).slice(0,2).join('')}
+        </div>
+        <div>
+          <div style="font-weight:700;font-size:1rem">${s.name}</div>
+          <div style="font-size:.78rem;color:var(--muted)">${s.usn} · V BCA Section A</div>
+          <span class="pill ${risk.cls}">${risk.l} Risk</span>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+        <div style="background:var(--bg);border-radius:8px;padding:12px;text-align:center;">
+          <div style="font-size:1.5rem;font-weight:800;color:${s.attendance>=75?'var(--success)':'var(--danger)'}">${s.attendance}%</div>
+          <div style="font-size:.75rem;color:var(--muted)">Attendance</div>
+        </div>
+        <div style="background:var(--bg);border-radius:8px;padding:12px;text-align:center;">
+          <div style="font-size:1.5rem;font-weight:800;color:${gr.c}">${gr.g}</div>
+          <div style="font-size:.75rem;color:var(--muted)">Grade</div>
+        </div>
+        <div style="background:var(--bg);border-radius:8px;padding:12px;text-align:center;">
+          <div style="font-size:1.5rem;font-weight:800;color:var(--info)">${total}/50</div>
+          <div style="font-size:.75rem;color:var(--muted)">Total Marks</div>
+        </div>
+        <div style="background:var(--bg);border-radius:8px;padding:12px;text-align:center;">
+          <div style="font-size:1.5rem;font-weight:800;color:var(--primary)">${pct}%</div>
+          <div style="font-size:.75rem;color:var(--muted)">Percentage</div>
+        </div>
+      </div>
+
+      <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+          <tbody>
+            <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;color:var(--muted)">Internal 1</td><td style="padding:8px 12px;font-weight:700;text-align:right">${s.internal1}/20</td></tr>
+            <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;color:var(--muted)">Internal 2</td><td style="padding:8px 12px;font-weight:700;text-align:right">${s.internal2}/20</td></tr>
+            <tr style="border-bottom:1px solid var(--border);"><td style="padding:8px 12px;color:var(--muted)">Assignment</td><td style="padding:8px 12px;font-weight:700;text-align:right">${s.assignment}/10</td></tr>
+            <tr><td style="padding:8px 12px;color:var(--muted)">Attendance</td><td style="padding:8px 12px;font-weight:700;text-align:right">${s.attendance}%</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="getStudentAI('${usn}')" class="btn btn-sm btn-primary">🤖 AI Recommendation</button>
+        <button onclick="exportReport('pdf')" class="btn btn-sm btn-outline">📄 Print Report</button>
+      </div>
+    </div>`;
+
+  document.getElementById('performance-profile').innerHTML = `
+    <div style="margin-top:10px;">
+      ${[
+        { label:'Attendance', val: s.attendance, max: 100 },
+        { label:'Internal 1', val: s.internal1/20*100, max: 100 },
+        { label:'Internal 2', val: s.internal2/20*100, max: 100 },
+        { label:'Assignment', val: s.assignment/10*100, max: 100 },
+        { label:'Overall', val: pct, max: 100 },
+      ].map(m => `
+        <div class="radar-bar">
+          <div class="radar-label">${m.label}</div>
+          <div style="flex:1">
+            <div class="progress-bar-wrap">
+              <div class="progress-bar ${m.val>=75?'green':m.val>=50?'orange':'red'}" style="width:${m.val}%"></div>
+            </div>
+          </div>
+          <div class="radar-pct" style="color:${m.val>=75?'var(--success)':m.val>=50?'var(--warning)':'var(--danger)'}">${Math.round(m.val)}%</div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function buildSubjectAnalysis(STUDENTS) {
+  if (!STUDENTS) STUDENTS = APP_DATA.getStudents();
+  const SUBJECTS = APP_DATA.getSubjects();
+  const el = document.getElementById('subject-analysis');
+  if (SUBJECTS.length === 0) { el.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">No subjects added yet.</div>'; return; }
+  const avgAtt = STUDENTS.length ? Math.round(STUDENTS.reduce((a,s)=>a+(s.attendance||0),0)/STUDENTS.length) : 0;
+  const avg1   = STUDENTS.length ? (STUDENTS.reduce((a,s)=>a+(s.internal1||0),0)/STUDENTS.length).toFixed(1) : '0';
+  const avg2   = STUDENTS.length ? (STUDENTS.reduce((a,s)=>a+(s.internal2||0),0)/STUDENTS.length).toFixed(1) : '0';
+  el.innerHTML = SUBJECTS.map(sub => `
+      <div style="margin-bottom:20px;padding:16px;background:var(--bg);border-radius:10px;border:1px solid var(--border);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <div>
+            <div style="font-weight:700;font-size:.9rem;">${sub.name}</div>
+            <div style="font-size:.76rem;color:var(--muted)">${sub.code||''} · ${sub.faculty||''} · ${sub.credits||0} Credits</div>
+          </div>
+          <span class="pill pill-blue">${sub.type||'Theory'}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+          <div style="background:#fff;border-radius:8px;padding:10px;text-align:center;border:1px solid var(--border);">
+            <div style="font-size:1.1rem;font-weight:800;color:var(--info)">${avgAtt}%</div>
+            <div style="font-size:.72rem;color:var(--muted)">Avg Attendance</div>
+          </div>
+          <div style="background:#fff;border-radius:8px;padding:10px;text-align:center;border:1px solid var(--border);">
+            <div style="font-size:1.1rem;font-weight:800;color:var(--primary)">${avg1}/20</div>
+            <div style="font-size:.72rem;color:var(--muted)">Avg Internal 1</div>
+          </div>
+          <div style="background:#fff;border-radius:8px;padding:10px;text-align:center;border:1px solid var(--border);">
+            <div style="font-size:1.1rem;font-weight:800;color:var(--primary)">${avg2}/20</div>
+            <div style="font-size:.72rem;color:var(--muted)">Avg Internal 2</div>
+          </div>
+        </div>
+      </div>`).join('');
+}
+
+function filterPerf() {
+  const q = document.getElementById('perf-search').value.toLowerCase();
+  document.querySelectorAll('#perf-tbody tr').forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function sortStudents() {
+  const by = document.getElementById('sort-by').value;
+  const sorted = [...APP_DATA.getStudents()].sort((a,b) => {
+    if (by === 'attendance') return (b.attendance||0) - (a.attendance||0);
+    if (by === 'marks') return ((b.internal1||0)+(b.internal2||0)+(b.assignment||0)) - ((a.internal1||0)+(a.internal2||0)+(a.assignment||0));
+    if (by === 'risk') return riskLevel(a).l.localeCompare(riskLevel(b).l);
+    return a.name.localeCompare(b.name);
+  });
+  APP_DATA.saveStudents(sorted);
+  buildOverview(sorted);
+}
+
+async function loadAIPerformance() {
+  const stus = APP_DATA.getStudents();
+  const el = document.getElementById('ai-class-analysis');
+  el.style.fontStyle = 'normal'; el.textContent = '⏳ Analyzing with IBM watsonx…';
+  switchTab('ai', document.querySelectorAll('.tab')[3]);
+  const res = await WATSONX.analyzePerformance({
+    totalStudents: stus.length,
+    avgAttendance: stus.length ? Math.round(stus.reduce((a,s)=>a+(s.attendance||0),0)/stus.length) : 0,
+    atRiskCount: stus.filter(s=>riskLevel(s).l!=='Low').length,
+    passRate: stus.length ? Math.round(stus.filter(s=>(s.internal1||0)+(s.internal2||0)+(s.assignment||0)>=25).length/stus.length*100) : 0,
+    topScorer: stus.length ? stus.reduce((a,b)=>((a.internal1||0)+(a.internal2||0)+(a.assignment||0)>(b.internal1||0)+(b.internal2||0)+(b.assignment||0))?a:b).name : 'N/A',
+  });
+  el.textContent = res;
+}
+
+async function loadAIAnomalies() {
+  const el = document.getElementById('anomaly-results');
+  el.textContent = '⏳ Detecting anomalies…';
+  const result = await WATSONX.detectAnomalies(APP_DATA.getStudents());
+  el.style.color = 'var(--text)';
+  el.textContent = result;
+}
+
+async function loadRemedial() {
+  const usn = document.getElementById('remedial-student').value;
+  if (!usn) return;
+  const s = APP_DATA.getStudents().find(x => x.usn === usn || x.rollNo === usn);
+  const el = document.getElementById('ai-remedial');
+  el.textContent = '⏳ Generating recommendations…';
+  const res = await WATSONX.suggestRemedialAction(s);
+  el.style.fontStyle = 'normal'; el.style.color = 'var(--text)';
+  el.textContent = res;
+}
+
+async function getStudentAI(usn) {
+  const s = APP_DATA.getStudents().find(x => x.usn === usn || x.rollNo === usn);
+  openWatsonxPanel();
+  setTimeout(() => {
+    document.getElementById('wx-input').value = `Suggest remedial actions for student: ${s.name}, Attendance: ${s.attendance}%, Marks: ${s.internal1+s.internal2+s.assignment}/50`;
+    wxSend();
+  }, 500);
+}
+
+function exportReport(type) { alert(`Exporting performance report as ${type.toUpperCase()}…`); }
+function switchTab(id, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Settings – Faculty Portal</title>
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+<div class="shell">
+  <div id="sidebar-placeholder"></div>
+  <div class="main-area">
+    <div id="header-placeholder"></div>
+    <main class="page-content">
+      <div class="page-header">
+        <div><h1>Settings</h1><div class="subtitle">Profile, Password, Notifications, and watsonx AI Configuration</div></div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('profile', this)">Profile</div>
+        <div class="tab" onclick="switchTab('password', this)">Change Password</div>
+        <div class="tab" onclick="switchTab('notifications', this)">Notifications</div>
+        <div class="tab" onclick="switchTab('watsonx', this)">watsonx AI</div>
+      </div>
+
+      <!-- Profile -->
+      <div class="tab-panel active" id="tab-profile">
+        <div class="card" style="max-width:600px;">
+          <div class="card-title">👤 Profile Settings</div>
+          <div style="display:flex;align-items:center;gap:18px;margin-bottom:22px;">
+            <div style="width:72px;height:72px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:800;" id="profile-avatar">—</div>
+              <div>
+                <div style="font-weight:700;font-size:1rem;" id="profile-name-display">Faculty Member</div>
+                <div style="font-size:.78rem;color:var(--muted)" id="profile-sub-info"></div>
+              <button onclick="alert('Photo upload')" class="btn btn-outline btn-sm" style="margin-top:8px;">📷 Change Photo</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Full Name</label>
+              <input type="text" class="form-control" id="pname" placeholder="Your full name"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Faculty ID</label>
+              <input type="text" class="form-control" id="pfaculty-id" disabled/>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input type="email" class="form-control" id="pemail" placeholder="your@college.edu"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Phone</label>
+              <input type="tel" class="form-control" id="pphone" placeholder="Phone number"/>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Designation</label>
+            <input type="text" class="form-control" id="pdesignation" placeholder="e.g. Assistant Professor"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Department</label>
+            <input type="text" class="form-control" id="pdept" placeholder="e.g. Department of Computer Science"/>
+          </div>
+          <button onclick="saveProfile()" class="btn btn-primary">💾 Save Profile</button>
+        </div>
+      </div>
+
+      <!-- Change Password -->
+      <div class="tab-panel" id="tab-password">
+        <div class="card" style="max-width:500px;">
+          <div class="card-title">🔒 Change Password</div>
+          <div class="alert alert-info">Use a strong password with uppercase, numbers, and special characters.</div>
+          <div class="form-group">
+            <label class="form-label">Current Password</label>
+            <div style="position:relative;">
+              <input type="password" class="form-control" id="curr-pw" placeholder="Enter current password"/>
+              <button onclick="togglePw('curr-pw', this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;">👁</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">New Password</label>
+            <div style="position:relative;">
+              <input type="password" class="form-control" id="new-pw-s" placeholder="Min 8 characters" oninput="checkStrength()"/>
+              <button onclick="togglePw('new-pw-s', this)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;">👁</button>
+            </div>
+            <div id="strength-indicator" style="margin-top:6px;"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirm New Password</label>
+            <input type="password" class="form-control" id="conf-pw-s" placeholder="Re-enter new password"/>
+          </div>
+          <div id="pw-change-msg" style="display:none;"></div>
+          <button onclick="changePassword()" class="btn btn-primary">🔒 Change Password</button>
+        </div>
+      </div>
+
+      <!-- Notifications -->
+      <div class="tab-panel" id="tab-notifications">
+        <div class="card" style="max-width:500px;">
+          <div class="card-title">🔔 Notification Preferences</div>
+          <div style="display:flex;flex-direction:column;gap:14px;">
+            ${[
+              ['Email notifications for new announcements', true],
+              ['Email reminder for attendance submission', true],
+              ['Email alerts for marks deadline', true],
+              ['SMS notifications', false],
+              ['Browser push notifications', true],
+              ['Weekly academic summary email', true],
+              ['AI insights notifications', false],
+            ].map(([label, checked]) => `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--bg);border-radius:8px;">
+                <div style="font-size:.85rem;font-weight:500">${label}</div>
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                  <input type="checkbox" ${checked ? 'checked' : ''}/>
+                  <span style="font-size:.78rem;color:var(--muted)">${checked ? 'On' : 'Off'}</span>
+                </label>
+              </div>`).join('')}
+          </div>
+          <button onclick="saveNotifications()" class="btn btn-primary" style="margin-top:16px;">💾 Save Preferences</button>
+        </div>
+      </div>
+
+      <!-- watsonx Settings -->
+      <div class="tab-panel" id="tab-watsonx">
+        <div class="card" style="max-width:600px;">
+          <div class="card-title">🤖 IBM watsonx AI Configuration</div>
+          <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:16px;margin-bottom:18px;">
+            <div style="font-weight:700;font-size:.88rem;margin-bottom:4px;">IBM watsonx Runtime</div>
+            <div style="font-size:.78rem;color:#0369a1;">Connect to IBM watsonx to enable AI-powered attendance analysis, performance insights, and automated report generation using Granite-13B-Instruct.</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">IBM Cloud API Key <span style="color:var(--danger)">*</span></label>
+            <input type="password" class="form-control" id="settings-api-key" placeholder="Paste your IBM Cloud API Key here"/>
+            <div style="font-size:.72rem;color:var(--muted);margin-top:4px;">Get your API key from <strong>cloud.ibm.com → API Keys</strong></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">watsonx Project ID <span style="color:var(--danger)">*</span></label>
+            <input type="text" class="form-control" id="settings-project-id" placeholder="watsonx project UUID"/>
+            <div style="font-size:.72rem;color:var(--muted);margin-top:4px;">Find in <strong>watsonx.ai → Projects → Your Project → Settings</strong></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Region</label>
+            <select class="form-control">
+              <option selected>us-south — Dallas (Default)</option>
+              <option>eu-de — Frankfurt</option>
+              <option>jp-tok — Tokyo</option>
+              <option>au-syd — Sydney</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Foundation Model</label>
+            <select class="form-control" id="settings-model">
+              <option value="ibm/granite-13b-instruct-v2" selected>ibm/granite-13b-instruct-v2 (Recommended)</option>
+              <option value="ibm/granite-20b-multilingual">ibm/granite-20b-multilingual</option>
+              <option value="meta-llama/llama-3-70b-instruct">meta-llama/llama-3-70b-instruct</option>
+              <option value="mistralai/mixtral-8x7b-instruct-v01">mistralai/mixtral-8x7b-instruct-v01</option>
+            </select>
+          </div>
+          <div id="wx-status-banner" style="margin-bottom:14px;display:none;"></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button onclick="saveWXSettings()" class="btn btn-primary">💾 Save & Connect</button>
+            <button onclick="testWXConnection()" class="btn btn-outline">🧪 Test Connection</button>
+            <button onclick="clearWXSettings()" class="btn btn-sm" style="background:#ef4444;color:#fff;">🗑 Clear</button>
+          </div>
+          <div style="margin-top:18px;padding:14px;background:var(--bg);border-radius:8px;font-size:.76rem;color:var(--muted);">
+            <strong>📘 How to get credentials:</strong><br>
+            1. Sign in to <strong>cloud.ibm.com</strong><br>
+            2. Go to <strong>Manage → Access → API Keys</strong> → Create an API Key<br>
+            3. Open <strong>watsonx.ai</strong> → Create a Project<br>
+            4. Copy the Project ID from Project Settings<br>
+            5. Paste both above and click Save & Connect
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/watsonx.js"></script>
+<script src="js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  initPage('settings', 'Settings');
+
+  // Load existing credentials (fall back to the hard-coded defaults from watsonx.js)
+  const existKey  = localStorage.getItem('wx_api_key')    || 'ApiKey-0ae35a9e-ce73-4bb1-85a6-136d892085f5';
+  const existProj = localStorage.getItem('wx_project_id') || '4d539e47-32a8-4fac-8787-0d8c9f14f97a';
+  document.getElementById('settings-api-key').value    = existKey;
+  document.getElementById('settings-project-id').value = existProj;
+
+  // Show config status
+  if (WATSONX.isConfigured()) {
+    document.getElementById('wx-status-banner').style.display = 'block';
+    document.getElementById('wx-status-banner').innerHTML = '<div class="alert alert-success">✅ watsonx AI is configured and active.</div>';
+  }
+
+  // Profile — populate from sessionStorage and localStorage
+  const name = sessionStorage.getItem('faculty_name') || 'Faculty';
+  const fid  = sessionStorage.getItem('faculty_id')   || '';
+  const initials = name.split(' ').filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase() || '?';
+  document.getElementById('profile-avatar').textContent = initials;
+  document.getElementById('profile-name-display').textContent = name;
+  document.getElementById('pname').value = name;
+  document.getElementById('pfaculty-id').value = fid;
+
+  // Restore saved profile extras
+  const prof = JSON.parse(localStorage.getItem('portal_profile') || '{}');
+  if (prof.email)       document.getElementById('pemail').value = prof.email;
+  if (prof.phone)       document.getElementById('pphone').value = prof.phone;
+  if (prof.designation) document.getElementById('pdesignation').value = prof.designation;
+  if (prof.dept)        document.getElementById('pdept').value = prof.dept;
+
+  // Sub-info line
+  const col = APP_DATA ? APP_DATA.getCollegeInfo() : {};
+  document.getElementById('profile-sub-info').textContent =
+    [fid, prof.designation || 'Faculty', col.dept || ''].filter(Boolean).join(' · ');
+});
+
+function togglePw(id, btn) {
+  const el = document.getElementById(id);
+  el.type = el.type === 'password' ? 'text' : 'password';
+  btn.textContent = el.type === 'password' ? '👁' : '🙈';
+}
+
+function checkStrength() {
+  const v = document.getElementById('new-pw-s').value;
+  let score = 0;
+  if (v.length >= 8) score++;
+  if (/[A-Z]/.test(v)) score++;
+  if (/[0-9]/.test(v)) score++;
+  if (/[^A-Za-z0-9]/.test(v)) score++;
+  const el = document.getElementById('strength-indicator');
+  const labels = ['','Weak','Fair','Good','Strong'];
+  const colors = ['','#ef4444','#f97316','#f59e0b','#10b981'];
+  el.innerHTML = score > 0 ? `
+    <div style="font-size:.72rem;color:${colors[score]};margin-bottom:3px;">Strength: <strong>${labels[score]}</strong></div>
+    <div class="progress-bar-wrap"><div class="progress-bar" style="width:${score*25}%;background:${colors[score]}"></div></div>` : '';
+}
+
+function changePassword() {
+  const curr = document.getElementById('curr-pw').value;
+  const np = document.getElementById('new-pw-s').value;
+  const cp = document.getElementById('conf-pw-s').value;
+  const msg = document.getElementById('pw-change-msg');
+  msg.style.display = 'block';
+  if (curr !== 'faculty123') { msg.innerHTML = '<div class="alert alert-danger">❌ Current password is incorrect.</div>'; return; }
+  if (np.length < 8) { msg.innerHTML = '<div class="alert alert-danger">❌ New password must be at least 8 characters.</div>'; return; }
+  if (np !== cp) { msg.innerHTML = '<div class="alert alert-danger">❌ Passwords do not match.</div>'; return; }
+  const log = JSON.parse(localStorage.getItem('login_log') || '[]');
+  log.unshift({ ts: new Date().toLocaleString(), action: 'Password changed', device: 'Portal Settings' });
+  localStorage.setItem('login_log', JSON.stringify(log.slice(0,10)));
+  msg.innerHTML = '<div class="alert alert-success">✅ Password changed successfully!</div>';
+}
+
+function saveProfile() {
+  const name = document.getElementById('pname').value.trim();
+  if (name) sessionStorage.setItem('faculty_name', name);
+  const prof = {
+    email:       document.getElementById('pemail').value.trim(),
+    phone:       document.getElementById('pphone').value.trim(),
+    designation: document.getElementById('pdesignation').value.trim(),
+    dept:        document.getElementById('pdept').value.trim(),
+  };
+  localStorage.setItem('portal_profile', JSON.stringify(prof));
+  // Also update college dept if filled
+  if (prof.dept && APP_DATA) {
+    const col = APP_DATA.getCollegeInfo();
+    APP_DATA.saveCollegeInfo({ ...col, dept: prof.dept });
+  }
+  document.getElementById('profile-name-display').textContent = name || 'Faculty';
+  alert('✅ Profile saved successfully!');
+}
+
+function saveNotifications() { alert('✅ Notification preferences saved.'); }
+
+function saveWXSettings() {
+  const apiKey = document.getElementById('settings-api-key').value.trim();
+  const projectId = document.getElementById('settings-project-id').value.trim();
+  if (!apiKey || !projectId) { alert('Please enter both API Key and Project ID.'); return; }
+  WATSONX.setCredentials(apiKey, projectId);
+  document.getElementById('wx-status-banner').style.display = 'block';
+  document.getElementById('wx-status-banner').innerHTML = '<div class="alert alert-success">✅ Credentials saved. Testing connection…</div>';
+  testWXConnection();
+}
+
+async function testWXConnection() {
+  const el = document.getElementById('wx-status-banner');
+  el.style.display = 'block';
+  el.innerHTML = '<div class="alert alert-info">⏳ Connecting to IBM watsonx AI Runtime…</div>';
+  const res = await WATSONX.generate('Say hello in one sentence.', { maxTokens: 30 });
+  if (res && res.length > 2) {
+    el.innerHTML = `<div class="alert alert-success">✅ Connected successfully! Response: "${res.substring(0,80)}…"</div>`;
+  } else {
+    el.innerHTML = '<div class="alert alert-warning">⚠️ Using demo mode. Verify your API key and Project ID for live AI.</div>';
+  }
+}
+
+function clearWXSettings() {
+  if (confirm('Clear watsonx credentials?')) {
+    localStorage.removeItem('wx_api_key');
+    localStorage.removeItem('wx_project_id');
+    document.getElementById('settings-api-key').value = '';
+    document.getElementById('settings-project-id').value = '';
+    document.getElementById('wx-status-banner').innerHTML = '<div class="alert alert-warning">⚠️ watsonx credentials cleared. AI features will use demo mode.</div>';
+  }
+}
+
+function switchTab(id, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+}
+</script>
+</body>
+</html>

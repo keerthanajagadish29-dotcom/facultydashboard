@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Attendance – Faculty Portal</title>
+<link rel="stylesheet" href="css/style.css"/>
+<style>
+  .att-btn { width:38px;height:38px;border-radius:50%;border:2px solid var(--border);background:#fff;font-size:.9rem;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;font-weight:700; }
+  .att-btn.present { background:var(--success);border-color:var(--success);color:#fff; }
+  .att-btn.absent  { background:var(--danger);border-color:var(--danger);color:#fff; }
+  .att-btn.late    { background:var(--warning);border-color:var(--warning);color:#fff; }
+  .period-card { border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;cursor:pointer;transition:border-color .2s,background .2s;margin-bottom:10px; }
+  .period-card:hover   { border-color:var(--primary);background:#f0f9ff; }
+  .period-card.selected{ border-color:var(--primary);background:#eff6ff; }
+  .period-card.locked  { border-color:#fcd34d;background:#fef9c3;cursor:default; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div id="sidebar-placeholder"></div>
+  <div class="main-area">
+    <div id="header-placeholder"></div>
+    <main class="page-content">
+
+      <div class="page-header">
+        <div>
+          <h1>Smart Attendance System</h1>
+          <div class="subtitle" id="att-subtitle">Select a subject and period to mark attendance</div>
+        </div>
+        <button onclick="showCorrectionModal()" class="btn btn-sm" style="background:#f97316;color:#fff;">🔄 Correction Request</button>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" id="tab-btn-mark"    onclick="showTab('mark')">Mark Attendance</div>
+        <div class="tab"        id="tab-btn-history" onclick="showTab('history')">Log</div>
+        <div class="tab"        id="tab-btn-monthly" onclick="showTab('monthly')">Monthly Report</div>
+        <div class="tab"        id="tab-btn-qr"      onclick="showTab('qr')">QR Mode</div>
+      </div>
+
+      <!-- ── Mark Tab ─── -->
+      <div id="tab-mark">
+        <div class="grid-2">
+          <!-- Period selection -->
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-title">📅 Select Class Period</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Subject</label>
+                <select class="form-control" id="sel-subject" onchange="updatePeriods()">
+                  <option value="">— Select Subject —</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Date</label>
+                <input type="date" id="att-date" class="form-control" onchange="updatePeriods()"/>
+              </div>
+            </div>
+            <div id="period-list"></div>
+
+            <div id="bulk-card" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+              <div style="font-size:.82rem;font-weight:700;margin-bottom:8px;color:var(--primary);">⚡ Bulk Actions</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button onclick="markAll('present')" class="btn btn-success btn-sm">✅ All Present</button>
+                <button onclick="markAll('absent')"  class="btn btn-danger btn-sm">❌ All Absent</button>
+                <button onclick="clearAll()"         class="btn btn-outline btn-sm">🔄 Reset</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- QR panel -->
+          <div class="card">
+            <div class="card-title">📱 QR Code Attendance</div>
+            <div style="display:flex;flex-direction:column;align-items:center;padding:20px;background:var(--bg);border-radius:10px;border:1px solid var(--border);">
+              <div id="qr-box" style="width:160px;height:160px;background:#1e293b;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.72rem;text-align:center;padding:10px;">
+                Select a period first, then click Generate QR
+              </div>
+              <button onclick="generateQR()" class="btn btn-primary btn-sm" style="margin-top:12px;">📲 Generate QR</button>
+              <div id="qr-timer" style="font-size:.8rem;font-weight:700;color:var(--danger);margin-top:8px;display:none;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Student table -->
+        <div class="card" id="att-table-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+            <div class="card-title" style="margin-bottom:0">👥 <span id="att-class-label" style="font-weight:400;color:var(--muted)">Select a period above</span></div>
+            <div style="display:flex;gap:8px;">
+              <input type="text" id="student-search" class="form-control" placeholder="🔍 Search…" style="width:160px;" oninput="filterStudents()"/>
+              <div id="att-summary-badge"></div>
+            </div>
+          </div>
+          <div id="att-status-bar" style="display:none;margin-bottom:12px;"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>#</th><th>Roll No.</th><th>Student Name</th><th>Att%</th>
+                  <th style="text-align:center">P</th><th style="text-align:center">A</th><th style="text-align:center">L</th>
+                  <th>Remark</th></tr>
+              </thead>
+              <tbody id="att-tbody">
+                <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px;">Select a subject and period above.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="submit-section" style="display:none;margin-top:16px;">
+            <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;font-size:.8rem;color:#92400e;display:none;margin-bottom:10px;" id="already-submitted">
+              🔒 Attendance already submitted and locked for this period.
+            </div>
+            <div id="submit-btns" style="display:flex;gap:10px;flex-wrap:wrap;">
+              <button onclick="submitAttendance(false)" class="btn btn-success">✅ Submit & Lock</button>
+              <button onclick="submitAttendance(true)"  class="btn btn-outline">💾 Save Draft</button>
+              <button onclick="aiAttAnalysis()"         class="btn btn-sm" style="background:#1a3c6e;color:#fff;">🤖 AI Analysis</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Log Tab ─── -->
+      <div id="tab-history" style="display:none;">
+        <div class="card">
+          <div class="card-title">📋 Attendance Submission Log</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Subject</th><th>Period</th><th>Present</th><th>Absent</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody id="history-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Monthly Tab ─── -->
+      <div id="tab-monthly" style="display:none;">
+        <div class="card">
+          <div class="card-title">📊 Monthly Attendance Report</div>
+          <div id="monthly-table"></div>
+        </div>
+      </div>
+
+      <!-- ── QR Tab ─── -->
+      <div id="tab-qr" style="display:none;">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">⚙️ QR Session Setup</div>
+            <div class="form-group">
+              <label class="form-label">Subject</label>
+              <select class="form-control" id="qr-subj"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Period Time</label>
+              <input type="text" class="form-control" placeholder="e.g. 09:00–10:00"/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">QR Valid For</label>
+              <select class="form-control">
+                <option>5 minutes</option>
+                <option selected>10 minutes</option>
+                <option>15 minutes</option>
+              </select>
+            </div>
+            <button onclick="activateQR()" class="btn btn-primary" style="width:100%">📲 Activate QR Session</button>
+          </div>
+          <div class="card">
+            <div class="card-title">🎯 Active QR Session</div>
+            <div style="display:flex;flex-direction:column;align-items:center;padding:20px;background:var(--bg);border-radius:10px;">
+              <div id="qr-main" style="width:200px;height:200px;background:#1e293b;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.72rem;text-align:center;padding:10px;">No active session</div>
+              <div id="qr-info" style="margin-top:12px;text-align:center;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Correction Modal -->
+<div class="modal-backdrop" id="correction-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🔄 Attendance Correction Request</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group"><label class="form-label">Date</label><input type="date" class="form-control"/></div>
+    <div class="form-group"><label class="form-label">Subject</label><select class="form-control" id="corr-subj"></select></div>
+    <div class="form-group"><label class="form-label">Student</label><select class="form-control" id="corr-student"></select></div>
+    <div class="form-group">
+      <label class="form-label">Correction</label>
+      <select class="form-control"><option>Absent → Present</option><option>Present → Absent</option><option>Mark as Late</option></select>
+    </div>
+    <div class="form-group"><label class="form-label">Reason</label><textarea class="form-control" rows="3" placeholder="Reason…"></textarea></div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="submitCorr()" class="btn btn-primary">📤 Submit</button>
+      <button onclick="closeModal()" class="btn btn-outline">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/watsonx.js"></script>
+<script src="js/app.js"></script>
+<script>
+let attState = {};
+let currentPeriod = null;
+let submitted = false;
+
+document.addEventListener('DOMContentLoaded', () => {
+  initPage('attendance', 'Smart Attendance System');
+  document.getElementById('att-date').value = new Date().toISOString().split('T')[0];
+
+  // Populate subject dropdowns from stored subjects
+  const subjects = APP_DATA.getSubjects();
+  const selSubj = document.getElementById('sel-subject');
+  const qrSubj  = document.getElementById('qr-subj');
+  const corrSubj = document.getElementById('corr-subj');
+
+  subjects.forEach(s => {
+    [selSubj, qrSubj, corrSubj].forEach(sel => {
+      const opt = document.createElement('option');
+      opt.value = s.name; opt.textContent = s.name;
+      sel.appendChild(opt);
+    });
+  });
+
+  // Populate correction student list
+  const students = APP_DATA.getStudents();
+  const corrStu = document.getElementById('corr-student');
+  students.forEach(s => {
+    const opt = document.createElement('option');
+    opt.textContent = `${s.name} (${s.usn || s.rollNo || ''})`;
+    corrStu.appendChild(opt);
+  });
+
+  buildHistoryTable();
+  buildMonthlyTable();
+});
+
+function updatePeriods() {
+  const subj = document.getElementById('sel-subject').value;
+  const date = document.getElementById('att-date').value;
+  if (!subj) return;
+  const dayName = date ? new Date(date + 'T00:00:00').toLocaleDateString('en-US',{weekday:'long'}) : getDay();
+  const tt = APP_DATA.getTimetable();
+  const dayData = tt.find(d => d.day === dayName);
+  const periods = dayData ? dayData.slots.filter(s => s.subject === subj && s.type !== 'break') : [];
+  const el = document.getElementById('period-list');
+
+  if (periods.length === 0) {
+    el.innerHTML = `<div class="alert alert-warning">⚠ No scheduled period for "<strong>${subj}</strong>" on ${dayName}.<br>
+      <small>If this is correct, you can still mark manually by clicking below.</small></div>
+      <button onclick="selectPeriod('Manual','${subj}','${date}')" class="btn btn-outline btn-sm">Mark Manually Anyway</button>`;
+    return;
+  }
+
+  const now = new Date();
+  const nowMin = now.getHours()*60+now.getMinutes();
+  const isToday = date === new Date().toISOString().split('T')[0];
+
+  el.innerHTML = periods.map(p => {
+    const submKey = `att_${date}_${subj}_${p.time}`;
+    const isLocked = !!localStorage.getItem(submKey);
+    let badge = '', cls = 'period-card';
+    if (isLocked) { cls += ' locked'; badge = '<span class="pill pill-orange">🔒 Submitted</span>'; }
+    else {
+      const parts = p.time.split('–');
+      if (parts.length === 2 && isToday) {
+        const s = parts[0].trim().split(':').map(Number), e = parts[1].trim().split(':').map(Number);
+        const sm = s[0]*60+(s[1]||0), em = e[0]*60+(e[1]||0);
+        if (nowMin < sm) badge = '<span class="pill pill-blue">⏰ Upcoming</span>';
+        else if (nowMin >= sm && nowMin < em) badge = '<span class="pill pill-green">🔴 Active</span>';
+        else badge = '<span class="pill pill-gray">Past</span>';
+      } else {
+        badge = '<span class="pill pill-gray">—</span>';
+      }
+    }
+    return `
+      <div class="${cls}" onclick="${!isLocked ? `selectPeriod('${p.time}','${subj}','${date}')` : ''}">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-weight:700;font-size:.85rem;">${p.subject}</div>
+            <div style="font-size:.78rem;color:var(--muted)">⏰ ${p.time}${p.room ? ' · Room ' + p.room : ''}${p.faculty ? ' · ' + p.faculty : ''}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+            ${badge}
+            <span class="pill ${p.type==='lab'?'pill-orange':'pill-blue'}">${p.type}</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function selectPeriod(time, subject, date) {
+  currentPeriod = { time, subject, date };
+  const key = `att_${date}_${subject}_${time}`;
+  submitted = !!localStorage.getItem(key);
+  document.getElementById('att-class-label').textContent = `${subject} · ${time} · ${date}`;
+  document.getElementById('bulk-card').style.display = 'block';
+  document.getElementById('submit-section').style.display = 'block';
+  document.getElementById('already-submitted').style.display = submitted ? 'block' : 'none';
+  document.getElementById('submit-btns').style.display = submitted ? 'none' : 'flex';
+  renderStudentTable();
+}
+
+function renderStudentTable() {
+  const students = APP_DATA.getStudents();
+  const savedKey = currentPeriod ? `att_data_${currentPeriod.date}_${currentPeriod.subject}_${currentPeriod.time}` : null;
+  const saved = savedKey ? JSON.parse(localStorage.getItem(savedKey)||'{}') : {};
+  attState = { ...saved };
+
+  if (students.length === 0) {
+    document.getElementById('att-tbody').innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px;">No students added yet. <a href="admin.html">Add students in Admin →</a></td></tr>`;
+    return;
+  }
+
+  document.getElementById('att-tbody').innerHTML = students.map((s,i) => {
+    const status = attState[s.usn || s.rollNo] || '';
+    const roll = s.usn || s.rollNo || (i+1);
+    const att = s.attendance || 0;
+    return `
+      <tr id="row-${roll}">
+        <td>${i+1}</td>
+        <td style="font-family:monospace;font-size:.78rem">${roll}</td>
+        <td style="font-weight:600">${s.name}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:5px;">
+            <div class="progress-bar-wrap" style="width:50px"><div class="progress-bar ${att>=75?'green':'red'}" style="width:${att}%"></div></div>
+            <span style="font-size:.74rem;color:${att<75?'var(--danger)':'var(--success)'}">${att}%</span>
+          </div>
+        </td>
+        <td style="text-align:center"><button class="att-btn ${status==='present'?'present':''}" onclick="setSt('${roll}','present',this)">P</button></td>
+        <td style="text-align:center"><button class="att-btn ${status==='absent'?'absent':''}"  onclick="setSt('${roll}','absent',this)">A</button></td>
+        <td style="text-align:center"><button class="att-btn ${status==='late'?'late':''}"     onclick="setSt('${roll}','late',this)">L</button></td>
+        <td><input type="text" class="form-control" style="padding:5px 8px;font-size:.76rem;" id="rem-${roll}" value="${saved['remark_'+roll]||''}" placeholder="Note…"/></td>
+      </tr>`;
+  }).join('');
+  updateSummary();
+}
+
+function setSt(roll, status, btn) {
+  if (submitted) return;
+  document.getElementById('row-'+roll).querySelectorAll('.att-btn').forEach(b => b.classList.remove('present','absent','late'));
+  if (attState[roll] === status) delete attState[roll];
+  else { attState[roll] = status; btn.classList.add(status); }
+  updateSummary();
+}
+
+function updateSummary() {
+  const p = Object.values(attState).filter(v=>v==='present').length;
+  const a = Object.values(attState).filter(v=>v==='absent').length;
+  const l = Object.values(attState).filter(v=>v==='late').length;
+  const total = APP_DATA.getStudents().length;
+  document.getElementById('att-summary-badge').innerHTML =
+    `<span class="pill pill-green">P:${p}</span> <span class="pill pill-red">A:${a}</span> <span class="pill pill-orange">L:${l}</span> <span class="pill pill-gray">?:${total-p-a-l}</span>`;
+  const bar = document.getElementById('att-status-bar');
+  bar.style.display = 'block';
+  const pct = total ? Math.round(p/total*100) : 0;
+  bar.innerHTML = `<div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:3px;"><span>Attendance Rate</span><span style="font-weight:700;color:${pct>=75?'var(--success)':'var(--danger)'}">${pct}%</span></div><div class="progress-bar-wrap"><div class="progress-bar ${pct>=75?'green':'red'}" style="width:${pct}%"></div></div>`;
+}
+
+function markAll(status) {
+  APP_DATA.getStudents().forEach(s => {
+    const roll = s.usn || s.rollNo;
+    attState[roll] = status;
+    const row = document.getElementById('row-'+roll);
+    if (row) {
+      row.querySelectorAll('.att-btn').forEach(b => b.classList.remove('present','absent','late'));
+      const btns = row.querySelectorAll('.att-btn');
+      if (status==='present') btns[0].classList.add('present');
+      else if (status==='absent') btns[1].classList.add('absent');
+    }
+  });
+  updateSummary();
+}
+
+function clearAll() { attState={}; renderStudentTable(); }
+
+function submitAttendance(draft) {
+  if (!currentPeriod) { alert('Select a period first.'); return; }
+  const key  = `att_${currentPeriod.date}_${currentPeriod.subject}_${currentPeriod.time}`;
+  const dKey = `att_data_${currentPeriod.date}_${currentPeriod.subject}_${currentPeriod.time}`;
+  const save = { ...attState };
+  APP_DATA.getStudents().forEach(s => {
+    const roll = s.usn || s.rollNo;
+    const r = document.getElementById('rem-'+roll);
+    if (r && r.value) save['remark_'+roll] = r.value;
+  });
+  localStorage.setItem(dKey, JSON.stringify(save));
+  const p = Object.values(attState).filter(v=>v==='present').length;
+  const a = Object.values(attState).filter(v=>v==='absent').length;
+  if (!draft) {
+    localStorage.setItem(key, 'locked');
+    APP_DATA.appendAttendanceLog({ date: currentPeriod.date, subject: currentPeriod.subject, period: currentPeriod.time, present: p, absent: a, locked: true });
+    APP_DATA.appendAudit('Attendance marked', 'Attendance', `${currentPeriod.subject} – ${currentPeriod.date}`);
+    submitted = true;
+    document.getElementById('already-submitted').style.display = 'block';
+    document.getElementById('submit-btns').style.display = 'none';
+    alert('✅ Attendance submitted and locked!');
+  } else {
+    alert('💾 Draft saved!');
+  }
+  buildHistoryTable();
+}
+
+function filterStudents() {
+  const q = document.getElementById('student-search').value.toLowerCase();
+  document.querySelectorAll('#att-tbody tr').forEach(row => { row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none'; });
+}
+
+function buildHistoryTable() {
+  const log = APP_DATA.getAttendanceLog();
+  const tbody = document.getElementById('history-tbody');
+  if (log.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px;">No submissions yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = log.map(l => `
+    <tr>
+      <td>${formatDate(l.date)}</td>
+      <td style="font-weight:600">${l.subject}</td>
+      <td>${l.period}</td>
+      <td style="color:var(--success);font-weight:700">${l.present ?? '—'}</td>
+      <td style="color:var(--danger);font-weight:700">${l.absent ?? '—'}</td>
+      <td><span class="pill ${l.locked?'pill-orange':'pill-green'}">${l.locked?'🔒 Locked':'Open'}</span></td>
+      <td>${l.locked?`<button class="btn btn-sm" style="background:#f97316;color:#fff;" onclick="alert('Unlock request sent to Admin.')">Request Unlock</button>`:'<span class="pill pill-blue">Editable</span>'}</td>
+    </tr>`).join('');
+}
+
+function buildMonthlyTable() {
+  const students = APP_DATA.getStudents();
+  const el = document.getElementById('monthly-table');
+  if (students.length === 0) {
+    el.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">No students added yet.</div>';
+    return;
+  }
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>#</th><th>Roll No.</th><th>Name</th><th>Attendance %</th><th>Status</th></tr></thead>
+    <tbody>
+      ${students.map((s,i) => {
+        const att = s.attendance || 0;
+        return `<tr>
+          <td>${i+1}</td>
+          <td style="font-family:monospace;font-size:.78rem">${s.usn||s.rollNo||''}</td>
+          <td style="font-weight:600">${s.name}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="progress-bar-wrap" style="width:80px"><div class="progress-bar ${att>=75?'green':'red'}" style="width:${att}%"></div></div>
+              <strong>${att}%</strong>
+            </div>
+          </td>
+          <td><span class="pill ${att>=75?'pill-green':att>=65?'pill-orange':'pill-red'}">${att>=75?'Regular':att>=65?'Shortage':'Detained'}</span></td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table></div>
+  <div style="margin-top:12px;display:flex;gap:10px;">
+    <button onclick="alert('Export feature – connect to backend')" class="btn btn-primary btn-sm">📄 Export PDF</button>
+    <button onclick="alert('Export feature – connect to backend')" class="btn btn-success btn-sm">📊 Export Excel</button>
+  </div>`;
+}
+
+function generateQR() {
+  const p = currentPeriod;
+  if (!p) { alert('Select a period first.'); return; }
+  const qr = document.getElementById('qr-box');
+  qr.innerHTML = `<div style="font-size:.62rem;word-break:break-all;padding:8px;text-align:center;">QR ACTIVE<br>${p.subject}<br>${p.time}<br>${p.date}<br>████ ██ ████<br>█  █  █  █  █<br>████ ██ ████</div>`;
+  const timer = document.getElementById('qr-timer');
+  timer.style.display = 'block';
+  let t = 600;
+  const iv = setInterval(() => {
+    t--;
+    const m = Math.floor(t/60), s = t%60;
+    timer.textContent = `⏱ Expires in ${m}:${s.toString().padStart(2,'0')}`;
+    if (t <= 0) { clearInterval(iv); timer.textContent = '⛔ QR Expired'; qr.innerHTML = 'Expired'; }
+  }, 1000);
+}
+
+function activateQR() {
+  const subj = document.getElementById('qr-subj').value;
+  document.getElementById('qr-main').innerHTML = `<div style="font-size:.65rem;text-align:center;padding:10px;">SCAN TO ATTEND<br>${subj}<br>████ ██ ████<br>█  █  █  █<br>████ ██ ████</div>`;
+  document.getElementById('qr-info').innerHTML = `<span class="pill pill-green">🔴 Active</span><br><small style="color:var(--muted)">Students: 0 / ${APP_DATA.getStudents().length}</small>`;
+}
+
+function showCorrectionModal() { document.getElementById('correction-modal').classList.add('open'); }
+function closeModal() { document.getElementById('correction-modal').classList.remove('open'); }
+function submitCorr() { closeModal(); APP_DATA.appendAudit('Correction request', 'Attendance', 'Pending admin review'); alert('Correction request submitted to Admin.'); }
+
+function showTab(id) {
+  ['mark','history','monthly','qr'].forEach(t => {
+    document.getElementById('tab-' + t).style.display = t === id ? 'block' : 'none';
+    document.getElementById('tab-btn-' + t).classList.toggle('active', t === id);
+  });
+  if (id === 'history') buildHistoryTable();
+  if (id === 'monthly') buildMonthlyTable();
+}
+
+async function aiAttAnalysis() {
+  openWatsonxPanel();
+  setTimeout(() => {
+    const students = APP_DATA.getStudents();
+    document.getElementById('wx-input').value = `Analyze attendance: ${JSON.stringify(students.map(s=>({name:s.name,attendance:s.attendance||0})))}`;
+    wxSend();
+  }, 500);
+}
+</script>
+</body>
+</html>

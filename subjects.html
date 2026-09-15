@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>My Subjects – Faculty Portal</title>
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+<div class="shell">
+  <div id="sidebar-placeholder"></div>
+  <div class="main-area">
+    <div id="header-placeholder"></div>
+    <main class="page-content">
+      <div class="page-header">
+        <div><h1>Assigned Subjects & Classes</h1>
+          <div class="subtitle" id="subj-subtitle">Your class · Current semester</div></div>
+        <a href="admin.html" class="btn btn-primary btn-sm">+ Manage Subjects</a>
+      </div>
+
+      <div class="stat-grid" id="subj-stats" style="margin-bottom:22px;"></div>
+
+      <div id="subject-cards-root" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px;margin-bottom:24px;"></div>
+
+      <div class="card">
+        <div class="card-title">📋 Subject Details</div>
+        <div id="subjects-table-wrap">
+          <div style="color:var(--muted);text-align:center;padding:20px;">
+            No subjects added yet. <a href="admin.html">Go to Admin → Manage Subjects</a>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/watsonx.js"></script>
+<script src="js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  initPage('subjects', 'My Subjects');
+  const col = APP_DATA.getCollegeInfo();
+  document.getElementById('subj-subtitle').textContent = `${col.class || 'Your class'} · ${col.semester || 'Current semester'} · ${col.academicYear}`;
+
+  const subjects = APP_DATA.getSubjects();
+  const theory = subjects.filter(s => s.type !== 'Lab' && s.type !== 'Practical');
+  const lab    = subjects.filter(s => s.type === 'Lab' || s.type === 'Practical');
+  const credits = subjects.reduce((a,s) => a + (parseInt(s.credits)||0), 0);
+
+  document.getElementById('subj-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-icon blue">📚</div><div><div class="stat-val">${subjects.length}</div><div class="stat-label">Total Subjects</div></div></div>
+    <div class="stat-card"><div class="stat-icon green">📖</div><div><div class="stat-val">${theory.length}</div><div class="stat-label">Theory</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">🔬</div><div><div class="stat-val">${lab.length}</div><div class="stat-label">Lab / Practical</div></div></div>
+    <div class="stat-card"><div class="stat-icon purple">⭐</div><div><div class="stat-val">${credits}</div><div class="stat-label">Total Credits</div></div></div>
+    <div class="stat-card"><div class="stat-icon teal">🎓</div><div><div class="stat-val">${APP_DATA.getStudents().length}</div><div class="stat-label">Students</div></div></div>`;
+
+  const root = document.getElementById('subject-cards-root');
+  const colors = ['#eff6ff','#f0fdf4','#fff7ed','#fdf4ff','#ecfdf5','#fffbeb','#f0f9ff','#fef2f2'];
+  const icons  = ['💻','⚙️','🔐','📊','📐','🔬','🧪','🎯'];
+
+  if (subjects.length === 0) {
+    root.innerHTML = `<div class="card" style="text-align:center;padding:30px;grid-column:1/-1;color:var(--muted);">
+      <div style="font-size:2rem;margin-bottom:10px;">📚</div>
+      <div style="font-weight:600;margin-bottom:6px;">No subjects added yet</div>
+      <a href="admin.html" class="btn btn-primary">Go to Admin → Add Subjects</a>
+    </div>`;
+  } else {
+    subjects.forEach((s, i) => {
+      const card = document.createElement('div');
+      card.style.cssText = `background:${colors[i%colors.length]};border:1px solid var(--border);border-radius:var(--radius);padding:20px;`;
+      card.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+          <div style="font-size:1.6rem">${icons[i%icons.length]}</div>
+          <div style="display:flex;gap:6px;">
+            <span class="pill ${s.type==='Lab'?'pill-orange':'pill-blue'}">${s.type||'Theory'}</span>
+            <span class="pill pill-gray">${s.credits||0} cr</span>
+          </div>
+        </div>
+        <div style="font-weight:800;font-size:.95rem;color:var(--primary);margin-bottom:4px;">${s.name}</div>
+        <div style="font-size:.75rem;color:var(--muted);margin-bottom:10px;">${s.code||''}</div>
+        ${s.faculty ? `<div style="font-size:.78rem;margin-bottom:8px;">👨‍🏫 ${s.faculty}</div>` : ''}
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:14px;">🎓 ${APP_DATA.getStudents().length} Students</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <a href="attendance.html" class="btn btn-sm btn-primary">✅ Attendance</a>
+          <a href="marks.html" class="btn btn-sm btn-outline">📝 Marks</a>
+        </div>`;
+      root.appendChild(card);
+    });
+
+    document.getElementById('subjects-table-wrap').innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Code</th><th>Subject</th><th>Credits</th><th>Type</th><th>Faculty</th><th>Actions</th></tr></thead>
+          <tbody>
+            ${subjects.map(s => `
+              <tr>
+                <td><span class="pill pill-blue">${s.code||'—'}</span></td>
+                <td style="font-weight:600">${s.name}</td>
+                <td style="text-align:center">${s.credits||0}</td>
+                <td><span class="pill ${s.type==='Lab'?'pill-orange':'pill-blue'}">${s.type||'Theory'}</span></td>
+                <td style="font-size:.78rem">${s.faculty||'—'}</td>
+                <td>
+                  <div style="display:flex;gap:4px;">
+                    <a href="attendance.html" class="btn btn-icon btn-sm" title="Attendance">✅</a>
+                    <a href="marks.html"      class="btn btn-icon btn-sm" title="Marks">📝</a>
+                    <a href="performance.html" class="btn btn-icon btn-sm" title="Reports">📊</a>
+                  </div>
+                </td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+});
+</script>
+</body>
+</html>

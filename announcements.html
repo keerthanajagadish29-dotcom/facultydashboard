@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Announcements – Faculty Portal</title>
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+<div class="shell">
+  <div id="sidebar-placeholder"></div>
+  <div class="main-area">
+    <div id="header-placeholder"></div>
+    <main class="page-content">
+      <div class="page-header">
+        <div><h1>Announcements</h1><div class="subtitle">College notices, exam schedules, and important updates</div></div>
+        <button onclick="showNewAnnModal()" class="btn btn-primary btn-sm">+ New Announcement</button>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('all', this)">All</div>
+        <div class="tab" onclick="switchTab('high', this)">🔴 High Priority</div>
+        <div class="tab" onclick="switchTab('medium', this)">🟠 Medium</div>
+        <div class="tab" onclick="switchTab('low', this)">🟢 Low</div>
+      </div>
+
+      <div id="ann-list"></div>
+
+    </main>
+  </div>
+</div>
+
+<!-- New Announcement Modal -->
+<div class="modal-backdrop" id="ann-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">📢 New Announcement</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Title</label>
+      <input type="text" id="ann-title-input" class="form-control" placeholder="Announcement title…"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Message</label>
+      <textarea id="ann-body-input" class="form-control" rows="4" placeholder="Write the announcement…"></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Priority</label>
+        <select class="form-control" id="ann-priority">
+          <option value="high">High</option>
+          <option value="medium" selected>Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Target Audience</label>
+        <select class="form-control">
+          <option>All Students (V BCA A)</option>
+          <option>All Faculty</option>
+          <option>All</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="postAnnouncement()" class="btn btn-primary">📢 Post Announcement</button>
+      <button onclick="closeModal()" class="btn btn-outline">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/watsonx.js"></script>
+<script src="js/app.js"></script>
+<script>
+let activeFilter = 'all';
+
+document.addEventListener('DOMContentLoaded', () => {
+  initPage('announcements', 'Announcements');
+  renderAnnouncements('all');
+});
+
+function renderAnnouncements(filter) {
+  activeFilter = filter;
+  const el = document.getElementById('ann-list');
+  const anns = APP_DATA.getAnnouncements();
+  const list = filter === 'all' ? anns : anns.filter(a => a.priority === filter);
+  if (list.length === 0) { el.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);">No announcements in this category.</div>'; return; }
+  el.innerHTML = list.map(a => `
+    <div class="card" style="margin-bottom:14px;border-left:4px solid ${a.priority==='high'?'var(--danger)':a.priority==='medium'?'var(--warning)':'var(--success)'};">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <div style="font-weight:700;font-size:.95rem;">${a.title}</div>
+            <span class="pill ${a.priority==='high'?'pill-red':a.priority==='medium'?'pill-orange':'pill-green'}">${a.priority}</span>
+          </div>
+          <div style="font-size:.83rem;color:var(--text);margin-bottom:8px;line-height:1.6;">${a.body}</div>
+          <div style="font-size:.74rem;color:var(--muted);">📅 ${formatDate(a.date)} · Posted by <strong>${a.by}</strong></div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button onclick="editAnn(${a.id})" class="btn btn-icon btn-sm">✏️</button>
+          <button onclick="deleteAnn(${a.id})" class="btn btn-icon btn-sm">🗑</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function switchTab(filter, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderAnnouncements(filter === 'all' ? 'all' : filter);
+}
+
+function showNewAnnModal() { document.getElementById('ann-modal').classList.add('open'); }
+function closeModal() { document.getElementById('ann-modal').classList.remove('open'); }
+
+function postAnnouncement() {
+  const title = document.getElementById('ann-title-input').value.trim();
+  const body = document.getElementById('ann-body-input').value.trim();
+  const priority = document.getElementById('ann-priority').value;
+  if (!title || !body) { alert('Please fill in both title and message.'); return; }
+  const anns = APP_DATA.getAnnouncements();
+  anns.unshift({ id: Date.now(), title, body, date: new Date().toISOString().split('T')[0], priority, by: sessionStorage.getItem('faculty_name') || 'Faculty' });
+  APP_DATA.saveAnnouncements(anns);
+  closeModal();
+  renderAnnouncements(activeFilter);
+}
+
+function editAnn(id) { alert(`Edit announcement #${id} – would open editor`); }
+function deleteAnn(id) {
+  if (confirm('Delete this announcement?')) {
+    const all = APP_DATA.getAnnouncements();
+    const idx = all.findIndex(a => a.id === id);
+    if (idx > -1) { all.splice(idx, 1); APP_DATA.saveAnnouncements(all); renderAnnouncements(activeFilter); }
+  }
+}
+</script>
+</body>
+</html>
