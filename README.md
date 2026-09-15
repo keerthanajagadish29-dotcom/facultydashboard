@@ -1,6 +1,8 @@
 # Faculty Portal
 ## Powered by IBM watsonx AI — Works for Any College
 
+🌐 **Live Demo:** [https://facultydashboard.onrender.com](https://facultydashboard.onrender.com)
+
 ---
 
 ## 🚀 How to Open
